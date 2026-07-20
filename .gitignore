@@ -1,0 +1,120 @@
+# ============================================================
+# Götür — Getir Replica · .gitignore
+# ============================================================
+
+# ─── .NET / ASP.NET Core ────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.vs/
+*.swp
+*.swo
+*.DS_Store
+
+# Local publish output
+[Pp]ublish/
+[Pp]ublish**/
+
+# dotnet tool manifest
+.config/dotnet-tools.json
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+nuget.config
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Rider / JetBrains
+.idea/
+*.DotSettings.user
+
+# Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+*.trx
+coverage.xml
+*.coverage
+*.coveragexml
+
+# ─── Sensitive Configuration ────────────────────────────────
+# appsettings.json is committed as a TEMPLATE (no real secrets).
+# Copy appsettings.json → appsettings.Local.json for local overrides.
+appsettings.Local.json
+appsettings.Production.json
+*.local.json
+secrets.json
+.env
+.env.*
+!.env.example
+
+# ─── Node.js / React Frontend ───────────────────────────────
+node_modules/
+dist/
+build/
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite
+vite.config.ts.timestamp-*
+
+# ─── Flutter / Dart ─────────────────────────────────────────
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/.generated/
+mobile/ios/Runner.xcworkspace/xcshareddata/
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/GeneratedPluginRegistrant.java
+mobile/android/key.properties
+*.jks
+*.keystore
+mobile/coverage/
+mobile/pubspec.lock
+# Keep pubspec.lock if you want reproducible builds — team decision:
+# !mobile/pubspec.lock
+
+# ─── Docker ─────────────────────────────────────────────────
+# Keep docker-compose.yml — it's not secret.
+# Ignore local override files:
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ─── Database / SQL ─────────────────────────────────────────
+fix_orders.sql
+
+# ─── Misc ────────────────────────────────────────────────────
+Thumbs.db
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+swagger.json

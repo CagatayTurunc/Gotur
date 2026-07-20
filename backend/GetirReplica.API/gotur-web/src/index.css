@@ -1,0 +1,274 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Legacy aliases ── */
+  --color-cream: #efe6dd;
+  --color-cherry: #9a0002;
+  --color-cherry-dark: #6b0001;
+  --color-cherry-light: #c0392b;
+  --color-ink: #1a1a2e;
+  --color-ink-soft: #4a4a6a;
+
+  /* ── Design system colours ── */
+  --color-primary:                  #6f0001;
+  --color-on-primary:               #ffffff;
+  --color-primary-container:        #9a0002;
+  --color-on-primary-container:     #ffa294;
+  --color-primary-fixed:            #ffdad5;
+  --color-primary-fixed-dim:        #ffb4a9;
+  --color-on-primary-fixed:         #410000;
+  --color-on-primary-fixed-variant: #930002;
+  --color-inverse-primary:          #ffb4a9;
+
+  --color-secondary:                  #5d5f5f;
+  --color-on-secondary:               #ffffff;
+  --color-secondary-container:        #dcdddd;
+  --color-on-secondary-container:     #5f6161;
+  --color-secondary-fixed:            #e2e2e2;
+  --color-secondary-fixed-dim:        #c6c6c7;
+  --color-on-secondary-fixed:         #1a1c1c;
+  --color-on-secondary-fixed-variant: #454747;
+
+  --color-tertiary:                  #0016a7;
+  --color-on-tertiary:               #ffffff;
+  --color-tertiary-container:        #0022e6;
+  --color-on-tertiary-container:     #adb5ff;
+  --color-tertiary-fixed:            #dfe0ff;
+  --color-tertiary-fixed-dim:        #bdc2ff;
+  --color-on-tertiary-fixed:         #000965;
+  --color-on-tertiary-fixed-variant: #0020dc;
+
+  --color-error:             #ba1a1a;
+  --color-on-error:          #ffffff;
+  --color-error-container:   #ffdad6;
+  --color-on-error-container:#93000a;
+
+  --color-background:          #fff8f6;
+  --color-on-background:       #271815;
+  --color-surface:             #fff8f6;
+  --color-on-surface:          #271815;
+  --color-surface-variant:     #f9dcd7;
+  --color-on-surface-variant:  #5b403c;
+  --color-surface-dim:         #f1d4cf;
+  --color-surface-bright:      #fff8f6;
+  --color-inverse-surface:     #3e2c29;
+  --color-inverse-on-surface:  #ffedea;
+  --color-surface-tint:        #b81f15;
+
+  --color-surface-container-lowest:  #ffffff;
+  --color-surface-container-low:     #fff0ee;
+  --color-surface-container:         #ffe9e6;
+  --color-surface-container-high:    #ffe2dd;
+  --color-surface-container-highest: #f9dcd7;
+
+  --color-outline:         #8f706b;
+  --color-outline-variant: #e4beb8;
+
+  /* ── Border radius ── */
+  --radius-DEFAULT: 0.25rem;
+  --radius-lg:      0.5rem;
+  --radius-xl:      0.75rem;
+  --radius-full:    9999px;
+
+  /* ── Spacing ── */
+  --spacing-xs:              4px;
+  --spacing-sm:              8px;
+  --spacing-md:              16px;
+  --spacing-lg:              24px;
+  --spacing-xl:              32px;
+  --spacing-base:            4px;
+  --spacing-gutter:          16px;
+  --spacing-margin-mobile:   16px;
+  --spacing-margin-desktop:  48px;
+
+  /* ── Typography ── */
+  --font-family-headline-md:        Inter, sans-serif;
+  --font-family-display-lg:         Inter, sans-serif;
+  --font-family-label-md:           Inter, sans-serif;
+  --font-family-label-sm:           Inter, sans-serif;
+  --font-family-headline-lg-mobile: Inter, sans-serif;
+  --font-family-body-md:            Inter, sans-serif;
+  --font-family-body-lg:            Inter, sans-serif;
+  --font-family-headline-lg:        Inter, sans-serif;
+  --font-family-sans:               'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  --font-size-headline-md:        20px;
+  --font-size-display-lg:         48px;
+  --font-size-label-md:           14px;
+  --font-size-label-sm:           12px;
+  --font-size-headline-lg-mobile: 24px;
+  --font-size-body-md:            16px;
+  --font-size-body-lg:            18px;
+  --font-size-headline-lg:        32px;
+
+  --line-height-headline-md:        28px;
+  --line-height-display-lg:         56px;
+  --line-height-label-md:           20px;
+  --line-height-label-sm:           16px;
+  --line-height-headline-lg-mobile: 32px;
+  --line-height-body-md:            24px;
+  --line-height-body-lg:            28px;
+  --line-height-headline-lg:        40px;
+
+  --font-weight-headline-md:        600;
+  --font-weight-display-lg:         700;
+  --font-weight-label-md:           600;
+  --font-weight-label-sm:           500;
+  --font-weight-headline-lg-mobile: 700;
+  --font-weight-body-md:            400;
+  --font-weight-body-lg:            400;
+  --font-weight-headline-lg:        700;
+}
+
+/* ── Typography utility classes ── */
+@layer utilities {
+  /* font-family shortcuts */
+  .font-headline-md        { font-family: Inter, sans-serif; }
+  .font-display-lg         { font-family: Inter, sans-serif; }
+  .font-label-md           { font-family: Inter, sans-serif; }
+  .font-label-sm           { font-family: Inter, sans-serif; }
+  .font-headline-lg-mobile { font-family: Inter, sans-serif; }
+  .font-body-md            { font-family: Inter, sans-serif; }
+  .font-body-lg            { font-family: Inter, sans-serif; }
+  .font-headline-lg        { font-family: Inter, sans-serif; }
+
+  /* font-size + line-height + weight combos */
+  .text-headline-md {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+  }
+  .text-display-lg {
+    font-size: 48px;
+    line-height: 56px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  .text-label-md {
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.01em;
+    font-weight: 600;
+  }
+  .text-label-sm {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+  }
+  .text-headline-lg-mobile {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 700;
+  }
+  .text-body-md {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+  }
+  .text-body-lg {
+    font-size: 18px;
+    line-height: 28px;
+    font-weight: 400;
+  }
+  .text-headline-lg {
+    font-size: 32px;
+    line-height: 40px;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+
+  /* Spacing utilities */
+  .px-margin-mobile   { padding-left: 16px;  padding-right: 16px; }
+  .px-margin-desktop  { padding-left: 48px;  padding-right: 48px; }
+  .py-margin-mobile   { padding-top: 16px;   padding-bottom: 16px; }
+  .py-margin-desktop  { padding-top: 48px;   padding-bottom: 48px; }
+  .gap-xs  { gap: 4px; }
+  .gap-sm  { gap: 8px; }
+  .gap-md  { gap: 16px; }
+  .gap-lg  { gap: 24px; }
+  .gap-xl  { gap: 32px; }
+  .p-md    { padding: 16px; }
+  .p-lg    { padding: 24px; }
+  .p-xl    { padding: 32px; }
+  .py-md   { padding-top: 16px; padding-bottom: 16px; }
+  .py-lg   { padding-top: 24px; padding-bottom: 24px; }
+  .px-sm   { padding-left: 8px;  padding-right: 8px; }
+  .pr-sm   { padding-right: 8px; }
+  .mb-sm   { margin-bottom: 8px; }
+  .mb-md   { margin-bottom: 16px; }
+  .mt-md   { margin-top: 16px; }
+  .space-y-md > * + * { margin-top: 16px; }
+  .space-y-lg > * + * { margin-top: 24px; }
+  .space-y-xl > * + * { margin-top: 32px; }
+  .space-y-sm > * + * { margin-top: 8px; }
+
+  /* Scrollbar hide */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Right margin desktop responsive override */
+  @media (min-width: 768px) {
+    .md\:px-margin-desktop { padding-left: 48px; padding-right: 48px; }
+    .md\:p-xl               { padding: 32px; }
+  }
+}
+
+/* ── Material Symbols ── */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.fill-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Light mode defaults */
+:root {
+  --bg-page:        #fff8f6;
+  --bg-card:        #ffffff;
+  --bg-card-hover:  #fff0ee;
+  --bg-input:       #faf7f4;
+  --bg-muted:       #ffe9e6;
+  --border:         #e4beb8;
+  --border-muted:   #f9dcd7;
+  --text-primary:   #271815;
+  --text-secondary: #5b403c;
+  --text-muted:     #8f706b;
+  --accent:         #6f0001;
+  --accent-hover:   #9a0002;
+  --accent-soft:    #ffe2dd;
+  --nav-bg:         #ffffff;
+  --footer-bg:      #3e2c29;
+  --footer-text:    #ffedea;
+}
+
+/* Dark mode overrides — applied when <html class="dark"> */
+html.dark {
+  --bg-page:        #180e0d;
+  --bg-card:        #231413;
+  --bg-card-hover:  #2e1a18;
+  --bg-input:       #2a1715;
+  --bg-muted:       #3d1f1c;
+  --border:         #4a2420;
+  --border-muted:   #3a1e1b;
+  --text-primary:   #f5e6e4;
+  --text-secondary: #c9a09a;
+  --text-muted:     #a07068;
+  --accent:         #ff6b6b;
+  --accent-hover:   #ff8585;
+  --accent-soft:    #3d1f1c;
+  --nav-bg:         #1e1110;
+  --footer-bg:      #0f0908;
+  --footer-text:    #f5e6e4;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Leaflet harita z-index düzeltmesi */
+.leaflet-container {
+  z-index: 0;
+}

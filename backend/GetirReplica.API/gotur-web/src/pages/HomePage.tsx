@@ -1,0 +1,601 @@
+﻿import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { authService } from '../services/authService'
+import { orderService } from '../services/orderService'
+import HelpDrawer from '../components/HelpDrawer'
+import ThemeToggle from '../components/ThemeToggle'
+import api from '../services/api'
+import type { Restaurant } from '../types'
+
+const CAMPAIGNS = [
+  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJ-O91j0bsm7n7YnWinyNPttecnXGULxJaOvfGSET7O4wr2y9BQ4hr_fyf1ZxX8jVvLVDZfZVO_GQJ91ECGTj_T76AGy9GEMagESyX-JEk16edmdwFSbBjD9KJ2eDJnjFxAYiFIXKyDYxr6BsE7oyp5bAcLxkFAThvh6K54SLwkZq96GGLh-U4MOXae4H-4KmfhuWITxj6FJOyfpd5Vf-NzLhI3XjIraGw1fBmRzVuuYwr-1WNz0JktADFmuz26rvc-xLFFTMKPrQ' },
+  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBmxHlIH_TQ4dGLa6cEi6SVmUHy0A6a_232Mb4yNG32qy73hnx_mE0W7IhXbz6ubMf92MXScDZCtQ_Gt2k2sfQWcnUJuWEkE_r3fpCfMSt1TGI6u-I5arEUQTYzjLF0879uITt-q-uMa6sii29U1P29ejfbM3fQjUm9A-wRfDKwGtBSmZWzrXVzztrH9DLNjPvaWcFiZZghyZT90LcYPvDrdis-31lGNIiehrDC0-Aik7sF6_Vkt5Y2tn46oULMSkKgNUVKnIsrsJw' },
+  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCpBOMa05w2MDhbOZTxWuSSDbrR0ZK0joiTUXX0bP8eKrk9egHNcLRkjGsrDj6c6Ppq663R7-GMRuZX5CntDJen_ayENzG29CXaFjLboPA_Z8CtbnpWkm3AD3FDX3-76arRpcV0JjzQR0fPpJyD5zkE9IDToi3RXcQ12a4PNCMMCq4iYx1n6sfKG4tKZvH23czGqESV3jKoltZJ9qz3ZM2fdCrpQAZpTR9lyF5ovCRsO7sHUI0xzon0-5HxnuloK8SVTE8X2bo0c-o' },
+  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKdY1yBHICNgMLat9_ODvQfjdJnMtJ71HgoUzLpy81kvhrQF4NnCmhooileh4XUCeiAtLGFD5Mc_8fAOLJytROiREqqlUQuKt7yUiH1DRx9vGkFwW_buDfufPRxmm0PRWsmXnnwXjua9xmu2sM90HVABf4QpIisY1drwlFJPc_dXzwFa8olSS2YN0-Ra5J-p_mbpuriDD6_HHq8jF_MLu2bFKirciCK-AQ7yHQiH52rQhp5KW1oWujA5z-Zatb1sRnUB_bFig0--g' },
+]
+
+// Mock restoranlar — API boş döndüğünde bunlar gösterilir
+const MOCK_RESTAURANTS: Restaurant[] = [
+  { id: 'mock-1', name: 'Coni & Co',        address: 'Beşiktaş, İstanbul', description: 'Lezzetli tavuk yemekleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCEKE7ApXh1syXn-y4iPNtta4jLZz13nhzkzLC0UzpxXvgDYhQtuDTcYuYNvBZph8o14NkB2XuWNukQR_-0gljuSe70AnkLxfE7TcF6gblXJON1lhwDQY-wJVdD5ersTgl1YjrfaPmpjenC98FXVxdjDfR9tVGZYxYc2bgOiAfDwRdQDrMIpPxiLYFyP0xCNyr78VpDQxibAeVs7haGeN9agUmLQZsOaoy_tgo6g4jcjQXEklAxZUnXM3Np1m-5P1pvMfhXYy9SzRM', isOpen: true, locationLat: 41.04, locationLng: 29.01 },
+  { id: 'mock-2', name: 'Bursa İshakbey',   address: 'Kadıköy, İstanbul',  description: 'Gerçek Bursa döneri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhqcMswmIu2Oubojs8TnyoUH3Wma18TKrUaVUrOS_LqIeeMqnc6YY2FOgMtnSBHI1Z7-5mPGLdZG5QM7gBJ5pJisIv6C95hHg7-Gqd5oJ5xGWS_X_K1Ubd_0iN0fNQufBb-E3UJS7LUrwneXhBYkpy-IDkWA7IDxbCkTPEMgGcnHTvAZIBNS3KODy6nsYHZmbcgHA6MMuYinmD_CxitDgSCyZPKdpwU3Zx2SjnCSFnfha6jBBVu_hFnjtiSJ-2S4x6VSCkI9CQKe8', isOpen: true, locationLat: 40.99, locationLng: 29.03 },
+  { id: 'mock-3', name: 'Pişi Pişi Pankek', address: 'Şişli, İstanbul',    description: 'Tüm ürünlerde %20 indirim', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAuSJFDqGDo8pZSQvh62lcCfOtmeFAzaoN75omuQekL5cnMzL1mB5Dhw8JttDUhaMJ-8HStFlBxb_GKwqaNCe_5El6AJi1QTx4UNZs_ouSGliQmK9oBZZ7D2zNfNL1Yik4mcu3aMDQDAWVvSCYYFitEGk4KE_8EXbvsS_fr0fp86JvqnMeeV2Qr5wqCegBDbbetDjOOjUbv3dlsYt-x6-he9gVzZ3MBTSxIy1unC-HkEWX8v2yVce5B_3WuWvWhbfN51aslyML8v3c', isOpen: true, locationLat: 41.06, locationLng: 28.98 },
+  { id: 'mock-4', name: 'Cali Bowl',        address: 'Nişantaşı, İstanbul', description: 'Sağlıklı bowl seçenekleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9TRNAuLostDL709Yol1W3KZFq46pQQR4r_-DofCEqy8FY6XkWl0_vkvbBrscL9lBvQ5pMyh9prgkI0d8e6B9AzcIvRC5HikZkS3AZccC3OWwy7wavBK-LSD_2PsYFU_AFrZyjnjlJiDzDkNrn5kjVibTfMCkT5JEoxib9pC2k0qzOPAmQZbbmYZEujg9I6swHB50Vjw-rnK2I_RLTiTTccimNcFH52bUxL9r2JKxDMCS5mOF7GPvjdpC2XknqpOj-ChE71nWvXG8', isOpen: true, locationLat: 41.05, locationLng: 28.99 },
+  { id: 'mock-5', name: 'Makarnam',         address: 'Üsküdar, İstanbul',   description: 'Ev yapımı makarna çeşitleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1JW2E9vb5eVI7yW8-FOHf-cHXiSZJm59DjRzXCRvLeNIBlwJDwvRMHR5MxzXBGqHgBJ5G5eTyaAUq-x_rp465dE7iPVwiDMjFI6uE_FEqltHGT4M99MsgcZz2OFH5T1XZZFdSyOkhd0wOp90oPRO7g00T3t8tJcqHF0RGqCc7EUV7X2Mry9YeltsHVto-1obwPFj3rC8idHoqt-thBE5CTpoKzOA6EO6B_yBubsmLE9VG-gjIglfKSkHa8B3AD_HXAvrlXMpQitM', isOpen: true, locationLat: 41.02, locationLng: 29.02 },
+]
+
+const TEST_ACCOUNTS = [
+  { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'musteri@test.com',  password: 'Test123!'  },
+  { icon: '🛵', label: 'Kurye',    sub: 'Test123!',   email: 'kurye1@test.com',   password: 'Test123!'  },
+  { icon: '🍽️', label: 'Restoran', sub: 'Test123!',   email: 'restoran@test.com', password: 'Test123!'  },
+  { icon: '⚙️', label: 'Admin',    sub: 'Admin123!',  email: 'admin@getir.com',   password: 'Admin123!' },
+]
+
+const roleLabel: Record<string, string> = { customer: 'Müşteri', courier: 'Kurye', admin: 'Admin', restaurant: 'Restoran' }
+const roleIcon:  Record<string, string>  = { customer: '🛒', courier: '🛵', admin: '🔧', restaurant: '🍽️' }
+
+interface LocationState { openLogin?: boolean; returnTo?: string }
+type AuthMode = 'login' | 'register'
+
+export default function HomePage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const user = authService.getUser()
+
+  const [promoBanner, setPromoBanner] = useState(true)
+  const [promoCard,   setPromoCard]   = useState(true)
+  const [activeTab,   setActiveTab]   = useState<'restaurants'|'pickup'|'groceries'>('restaurants')
+  const [sortBy,      setSortBy]      = useState<'recommended'|'time'|'distance'>('recommended')
+  const [favorites,   setFavorites]   = useState<Set<string>>(new Set())
+  const [helpOpen,    setHelpOpen]    = useState(false)
+  const [helpSearch,  setHelpSearch]  = useState('')
+  const [apiRests,    setApiRests]    = useState<Restaurant[]>([])
+  const [userMenu,    setUserMenu]    = useState(false)
+  const [activeOrder, setActiveOrder] = useState<{ id: string; status: string; restaurantName?: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Aktif sipariş kontrolü — kullanıcı giriş yapmışsa
+  useEffect(() => {
+    if (!user || user.role !== 'customer') return
+    orderService.getOrders({ page: 1, pageSize: 10 })
+      .then(res => {
+        const active = res.items.find(o => ['Pending', 'Assigned', 'Picked'].includes(o.status))
+        if (active) setActiveOrder({ id: active.id, status: active.status })
+      })
+      .catch(() => {})
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [authOpen,      setAuthOpen]      = useState(false)
+  const [authMode,      setAuthMode]      = useState<AuthMode>('login')
+  const [authEmail,     setAuthEmail]     = useState('')
+  const [authPass,      setAuthPass]      = useState('')
+  const [authName,      setAuthName]      = useState('')
+  const [authRole,      setAuthRole]      = useState('customer')
+  const [remember,      setRemember]      = useState(false)
+  const [authLoading,   setAuthLoading]   = useState(false)
+  const [authError,     setAuthError]     = useState('')
+  const [showTestAccts, setShowTestAccts] = useState(false)
+
+  useEffect(() => {
+    const state = location.state as LocationState | null
+    if (state?.openLogin) {
+      setAuthOpen(true)
+      setAuthMode('login')
+      navigate('/', { replace: true, state: {} })
+    }
+  }, [location.state]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    api.get<Restaurant[]>('/restaurants').then(r => setApiRests(r.data)).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setUserMenu(false)
+    }
+    if (userMenu) document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [userMenu])
+
+  const openAuth = (mode: AuthMode) => {
+    setAuthMode(mode)
+    setAuthEmail(''); setAuthPass(''); setAuthName(''); setAuthRole('customer')
+    setAuthError(''); setShowTestAccts(false); setAuthOpen(true)
+  }
+  const closeAuth = () => { setAuthOpen(false); setAuthError(''); setShowTestAccts(false) }
+
+  const fillTest = async (acc: typeof TEST_ACCOUNTS[0]) => {
+    setAuthEmail(acc.email); setAuthPass(acc.password); setAuthError(''); setAuthLoading(true)
+    try {
+      const res = await authService.login({ email: acc.email, password: acc.password })
+      authService.saveSession(res); closeAuth()
+      switch (res.user.role) {
+        case 'admin':      navigate('/admin');      break
+        case 'restaurant': navigate('/restaurant'); break
+        case 'courier':    navigate('/courier');    break
+        default:           window.location.reload(); break
+      }
+    } catch { setAuthError('Giriş yapılamadı. Backend çalışıyor mu?') }
+    finally  { setAuthLoading(false) }
+  }
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setAuthError(''); setAuthLoading(true)
+    try {
+      let res
+      if (authMode === 'login') {
+        res = await authService.login({ email: authEmail, password: authPass })
+      } else {
+        res = await authService.register({ email: authEmail, password: authPass, fullName: authName, role: authRole })
+      }
+      authService.saveSession(res); closeAuth()
+      switch (res.user.role) {
+        case 'admin':      navigate('/admin');      break
+        case 'restaurant': navigate('/restaurant'); break
+        case 'courier':    navigate('/courier');    break
+        default:           window.location.reload(); break
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; errors?: string[] } } }
+      const data = e?.response?.data
+      const identityErrorMap: Record<string, string> = {
+        'Passwords must have at least one digit': 'Şifre en az bir rakam içermelidir.',
+        'Passwords must be at least':             'Şifre en az 6 karakter olmalıdır.',
+        'Email':                                  'Bu e-posta adresi zaten kullanımda.',
+        'is already taken':                       'Bu e-posta adresi zaten kullanımda.',
+        'DuplicateUserName':                      'Bu e-posta adresi zaten kullanımda.',
+        'DuplicateEmail':                         'Bu e-posta adresi zaten kullanımda.',
+        'PasswordRequiresDigit':                  'Şifre en az bir rakam içermelidir.',
+        'PasswordTooShort':                       'Şifre en az 6 karakter olmalıdır.',
+      }
+      if (data?.errors && data.errors.length > 0) {
+        const raw = data.errors[0]
+        const mapped = Object.entries(identityErrorMap).find(([k]) => raw.includes(k))
+        setAuthError(mapped ? mapped[1] : raw)
+      } else {
+        setAuthError(data?.message ?? 'Bir hata oluştu. Lütfen tekrar deneyin.')
+      }
+    } finally { setAuthLoading(false) }
+  }
+
+  // Gerçek restoranlar + mock'lar her zaman birlikte gösterilir
+  // Gerçek olanlar üstte, mock'lar altta
+  const openRealRests = apiRests.filter(r => r.isOpen)
+  const displayRests  = [...openRealRests, ...MOCK_RESTAURANTS]
+  const sorted = [...displayRests].sort((a, b) =>
+    sortBy === 'time' ? a.name.localeCompare(b.name) : 0
+  )
+
+  const toggleFav    = (e: React.MouseEvent, name: string) => {
+    e.stopPropagation()
+    setFavorites(p => { const s = new Set(p); s.has(name) ? s.delete(name) : s.add(name); return s })
+  }
+  const goRestaurant = (id: string) => navigate(id.startsWith('mock') ? '/restaurants/demo' : `/restaurants/${id}`)
+  const handleLogout = () => { setUserMenu(false); authService.logout(); navigate('/') }
+
+  const menuItems = [
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>), label: 'Cüzdan', action: () => { setUserMenu(false); navigate('/wallet') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>), label: 'Önceki Siparişlerim', action: () => { setUserMenu(false); navigate('/orders') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>), label: 'Hesabım', action: () => { setUserMenu(false); navigate('/account') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><rect x="1" y="6" width="22" height="13" rx="2"/><path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><line x1="8" y1="12" x2="16" y2="12"/></svg>), label: 'Kuponlarım', action: () => { setUserMenu(false) } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>), label: 'Yardım Merkezi', action: () => { setUserMenu(false); setHelpOpen(true) } },
+  ]
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+
+      {/* Promo Banner */}
+      {promoBanner && (
+        <div className="w-full py-2 px-4 md:px-12 flex justify-center items-center relative" style={{ backgroundColor: '#6f0001', color: '#fff' }}>
+          <button onClick={() => navigate('/partner/apply')} className="flex items-center gap-2 hover:opacity-90 transition-opacity">
+            <span className="material-symbols-outlined text-[18px]">storefront</span>
+            <span className="text-xs font-bold tracking-wide">RESTORAN ORTAĞIMIZ OLUN</span>
+          </button>
+          <button onClick={() => setPromoBanner(false)} className="absolute right-4 md:right-12 opacity-80 hover:opacity-100 transition-opacity">
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
+
+      {/* Aktif Sipariş Banner */}
+      {activeOrder && (
+        <div className="w-full px-4 md:px-12 py-3 flex items-center justify-between gap-3"
+          style={{ backgroundColor: activeOrder.status === 'Picked' ? '#1a4731' : '#6f0001', color: '#fff' }}>
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse flex-shrink-0" />
+            <span className="text-sm font-semibold">
+              {activeOrder.status === 'Pending'  && '🍳 Siparişin hazırlanıyor...'}
+              {activeOrder.status === 'Assigned' && '🛵 Kurye siparişini almak üzere...'}
+              {activeOrder.status === 'Picked'   && '🚀 Siparişin yolda, az kaldı!'}
+            </span>
+          </div>
+          <button
+            onClick={() => navigate(`/tracking/${activeOrder.id}`)}
+            className="text-xs font-bold px-4 py-1.5 rounded-full flex-shrink-0 transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)' }}>
+            Takip Et →
+          </button>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="sticky top-0 z-50 shadow-sm border-b" style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--border)' }}>
+        <div className="max-w-7xl mx-auto px-4 md:px-12 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-start">
+            <button onClick={() => navigate('/')} className="text-2xl font-black italic tracking-tight" style={{ color: 'var(--accent)' }}>Götür</button>
+            <button className="hidden md:flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+              <span className="material-symbols-outlined text-[18px]">location_on</span>
+              <span className="font-semibold truncate max-w-[200px]">Teslimat Adresi Seçin</span>
+              <span className="material-symbols-outlined text-[18px]">expand_more</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-80">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" style={{ color: 'var(--text-muted)' }}>search</span>
+              <input className="w-full pl-10 pr-4 py-2.5 rounded-full border text-sm outline-none transition-all"
+                style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                placeholder="Yemek, mutfak veya restoran ara" />
+            </div>
+            <div className="hidden md:flex items-center gap-2">
+              {user ? (
+                <div className="relative" ref={menuRef}>
+                  <button onClick={() => setUserMenu(o => !o)} className="flex items-center gap-2 px-3 py-2 rounded-full transition-colors select-none hover:opacity-80" style={{ color: 'var(--text-primary)' }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
+                      {user.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-semibold">{user.fullName}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                      {roleLabel[user.role] ?? user.role}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform duration-200 ${userMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {userMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setUserMenu(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl z-50 overflow-hidden border"
+                        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.13)', animation: 'dropIn .15s ease-out' }}>
+                        <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full text-white font-bold text-base flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
+                              {user.fullName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{user.fullName}</p>
+                              <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: 'var(--accent)' }}>
+                            <span>{roleIcon[user.role] ?? '👤'}</span>
+                            <span>{roleLabel[user.role] ?? user.role}</span>
+                          </div>
+                        </div>
+                        <ul className="py-1.5">
+                          {menuItems.map(item => (
+                            <li key={item.label}>
+                              <button onClick={item.action} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left" style={{ color: 'var(--text-primary)' }}
+                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-muted)')}
+                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                                <span className="flex-shrink-0 flex items-center justify-center w-5">{item.icon}</span>
+                                <span>{item.label}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
+                          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left" style={{ color: '#e53e3e' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-muted)')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
+                            <span className="flex-shrink-0 flex items-center justify-center w-5">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4">
+                                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                              </svg>
+                            </span>
+                            <span>Çıkış yap</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => openAuth('login')} className="px-5 py-2 rounded-full border text-sm font-semibold transition-colors hover:opacity-80" style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}>Giriş Yap</button>
+                  <button onClick={() => openAuth('register')} className="px-5 py-2 rounded-full text-sm font-semibold text-white transition-colors hover:opacity-80" style={{ backgroundColor: 'var(--accent)' }}>Kayıt Ol</button>
+                </>
+              )}
+              <ThemeToggle />
+              <button onClick={() => user ? navigate('/orders') : openAuth('login')} className="p-2 rounded-full transition-colors hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
+                <span className="material-symbols-outlined">shopping_bag</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Alt Nav */}
+        <div className="max-w-7xl mx-auto px-4 md:px-12">
+          <nav className="flex items-center gap-6 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {([
+              { key: 'restaurants', icon: 'restaurant',      label: 'Restoranlar' },
+              { key: 'pickup',      icon: 'directions_walk', label: 'Al Götür' },
+              { key: 'groceries',   icon: 'shopping_cart',   label: 'Market' },
+            ] as const).map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className="flex items-center gap-1.5 pb-3 pt-1 px-1 whitespace-nowrap text-sm font-semibold border-b-2 transition-all"
+                style={activeTab === tab.key ? { color: 'var(--accent)', borderColor: 'var(--accent)' } : { color: 'var(--text-muted)', borderColor: 'transparent' }}>
+                <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>{tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="max-w-7xl mx-auto px-4 md:px-12 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Sol Sidebar */}
+        <aside className="hidden md:block md:col-span-3 space-y-5 sticky top-[110px] h-[calc(100vh-110px)] overflow-y-auto pr-2" style={{ scrollbarWidth: 'none' }}>
+          {promoCard && (
+            <div className="rounded-xl p-4 border relative" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+              <button onClick={() => setPromoCard(false)} className="absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity" style={{ color: 'var(--text-secondary)' }}>
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="w-28 h-28 rounded-xl flex items-center justify-center relative" style={{ backgroundColor: 'var(--bg-muted)' }}>
+                  <img className="w-full h-full object-contain rounded-xl"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBohFUiEaJ22V8QpNOvuI6hjKiBcH6fdP_vudYNTsp3l8JBqscZrwx2LXOr72qFaMBTee6BhaUtOQaA438tUnX-KaEj8E8buDriitsTTwD3fkw3a0WAI6qGjk5r1kK7SpMtLsqNle078u_qo3-DvXFNW26mI2m3sJxORvWrlJq9nJrzAMqzKbQphvofZu_YN50vwHFFH2dT0JHSa_TSQrkCam80O8-cUaYUMLGT1LR58pctQCcHuAEhnT5YY-2NKw0XEDKZ8jkQ0XY"
+                    alt="QR" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full text-white font-black italic text-sm flex items-center justify-center shadow" style={{ backgroundColor: 'var(--accent)' }}>G</div>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Uygulamaya özel fırsatları yakala. Hemen indir.</p>
+                <div className="flex gap-2 w-full">
+                  <button className="flex-1 flex items-center justify-center gap-1 border rounded-lg py-2 px-2 text-xs font-medium transition-colors hover:opacity-80" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                    <span className="material-symbols-outlined text-[16px]">apps</span>App Store
+                  </button>
+                  <button className="flex-1 flex items-center justify-center gap-1 border rounded-lg py-2 px-2 text-xs font-medium transition-colors hover:opacity-80" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                    <span className="material-symbols-outlined text-[16px]">play_arrow</span>Play Store
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="rounded-xl p-4 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <h3 className="text-base font-black mb-4" style={{ color: 'var(--text-primary)' }}>Filtrele</h3>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Sırala</h4>
+            <div className="space-y-2.5">
+              {([
+                { value: 'recommended', label: 'Önerilen (Varsayılan)' },
+                { value: 'time',        label: 'Teslimat Süresi' },
+                { value: 'distance',    label: 'Mesafe' },
+              ] as const).map(opt => (
+                <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                  <input type="radio" name="sort" checked={sortBy === opt.value} onChange={() => setSortBy(opt.value)} className="w-4 h-4" style={{ accentColor: 'var(--accent)' }} />
+                  <span className="text-sm group-hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Ana İçerik */}
+        <div className="col-span-1 md:col-span-9 space-y-8">
+          <section className="rounded-2xl overflow-hidden relative min-h-[180px] flex items-center" style={{ backgroundColor: 'var(--accent-soft)' }}>
+            <div className="relative z-10 p-6 md:p-10 w-full md:w-2/3">
+              <h2 className="text-2xl md:text-4xl font-black leading-tight" style={{ color: 'var(--text-primary)' }}>
+                İlk siparişinde<br />ücretsiz teslimat<br />için kayıt ol
+              </h2>
+              <button onClick={() => openAuth('register')} className="mt-5 px-7 py-3 rounded-full text-sm font-bold text-white shadow-md hover:opacity-90 transition-opacity active:scale-95" style={{ backgroundColor: 'var(--accent)' }}>
+                Kayıt Ol
+              </button>
+            </div>
+            <div className="hidden md:block absolute right-0 bottom-0 h-full w-1/3">
+              <img className="h-full w-full object-cover object-left"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsXZlxv_fzer3A8tRXQjydRXWbeSJiZrU0X7JjnTolCwddXYRyzE6KkHI9Bqnu9MKwAdhz-yDZ-TreeSVt6P-WglTPQ54afsKQrxU_BE7_EqzbWkknvUhAm0LNIx-WuTIE8veacogTncUB8DHJipFv_9F2DjI28mRsmJyJi1ZPzLoogljgHvSpeF4AF0RiPHqRO7mnurbh3Mp3MJ-FnyzCrYG9Ftr17XeD3-_I4Ly-mWsJYtC1-NBMUsiviFBRKaMqtqDTt6bHIg4"
+                alt="Promo" />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-black mb-4" style={{ color: 'var(--text-primary)' }}>Kampanyalar</h2>
+            <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {CAMPAIGNS.map((c, i) => (
+                <div key={i} className="min-w-[280px] md:min-w-[320px] rounded-xl overflow-hidden border group cursor-pointer flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
+                  <img className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-500" src={c.src} alt={`Kampanya ${i + 1}`} />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>Tüm Restoranlar</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {sorted.map(r => (
+                <div key={r.id} onClick={() => goRestaurant(r.id)}
+                  className="rounded-xl overflow-hidden border group cursor-pointer transition-shadow hover:shadow-lg"
+                  style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                  <div className="relative h-48 bg-[#fff0ee] flex items-center justify-center overflow-hidden">
+                    {r.logoUrl ? (
+                      <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={r.logoUrl} alt={r.name} />
+                    ) : (
+                      <span className="material-symbols-outlined text-[64px]" style={{ color: '#e4beb8' }}>restaurant</span>
+                    )}
+                    <button onClick={e => toggleFav(e, r.name)} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
+                      <span className="material-symbols-outlined text-[18px]"
+                        style={{ color: favorites.has(r.name) ? 'var(--accent)' : 'var(--text-muted)', fontVariationSettings: favorites.has(r.name) ? "'FILL' 1" : "'FILL' 0" }}>
+                        favorite
+                      </span>
+                    </button>
+                  </div>
+                  <div className="p-3">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="text-sm font-black truncate flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                        <span className="material-symbols-outlined text-[16px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>verified</span>
+                        {r.name}
+                      </h3>
+                    </div>
+                    <p className="text-xs mb-1 truncate" style={{ color: 'var(--text-muted)' }}>{r.address}</p>
+                    {r.description && (
+                      <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{r.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      {/* Mobil Alt Nav */}
+      <nav className="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center border-t lg:hidden z-50 rounded-t-xl" style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--border)' }}>
+        <button onClick={() => navigate('/')} className="flex flex-col items-center justify-center gap-0.5" style={{ color: 'var(--accent)' }}>
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
+          <span className="text-[10px] font-semibold">Anasayfa</span>
+        </button>
+        <button className="flex flex-col items-center justify-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="material-symbols-outlined">search</span>
+          <span className="text-[10px]">Ara</span>
+        </button>
+        <button onClick={() => user ? navigate('/orders') : openAuth('login')} className="flex flex-col items-center justify-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="material-symbols-outlined">shopping_bag</span>
+          <span className="text-[10px]">Siparişler</span>
+        </button>
+        <button onClick={() => user ? navigate('/account') : openAuth('login')} className="flex flex-col items-center justify-center gap-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="material-symbols-outlined">person</span>
+          <span className="text-[10px]">Profil</span>
+        </button>
+      </nav>
+      <div className="h-16 lg:hidden" />
+
+      {helpOpen && (
+        <HelpDrawer onClose={() => { setHelpOpen(false); setHelpSearch('') }} helpSearch={helpSearch} setHelpSearch={setHelpSearch} />
+      )}
+
+      {/* Auth Modal */}
+      {authOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row" style={{ animation: 'scaleUp .2s ease-out', maxHeight: '95vh' }}>
+            <button onClick={closeAuth} className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-600">
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+            {/* Sol panel */}
+            <div className="w-full md:w-5/12 bg-[#1c1c1e] text-white p-8 flex flex-col justify-center items-center text-center relative overflow-hidden flex-shrink-0">
+              <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-[#9a0002] opacity-20 blur-3xl pointer-events-none" />
+              <h2 className="text-2xl font-bold leading-tight mb-3 tracking-tight">
+                Uygulamayı indir,<br /><span className="text-[#ffb4a9]">250 TL indirim</span> kazan
+              </h2>
+              <p className="text-sm text-white/60 mb-7 max-w-[200px] leading-relaxed">QR kodu tara, uygulamayı indir ve ilk yemeğin bizden olsun.</p>
+              <div className="bg-white p-3 rounded-xl shadow-lg mb-7 hover:scale-105 transition-transform duration-300">
+                <img className="w-36 h-36 object-cover rounded-lg"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC6Pgnq9IA4t6VMPuCMqdMfdTao_vjoM6-oRymUxPCygBliNdHDo0AhzyWFBDY1gSax6_pPl-W0LmCSQQeuDl1d49mRYkW5eKmC5SPOD3rujUO-a79vRjZGNMKwfFcRc8iPsWK4jJBFHuAR49qLICCJUHw570DKYE2yhW_XIVf2e5sYv1DEQzlwji-67Z4vZStI558EPyY7WakPJA8ZmSaEAajJf7lF_CG7rhMgJ7FuaoO1NHlBn_h1UHPF2TccaRr9R9gJTds9qs"
+                  alt="QR Kod" />
+              </div>
+              <div className="flex gap-3 w-full">
+                <button className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                  <span className="material-symbols-outlined text-[18px]">phone_iphone</span>iOS
+                </button>
+                <button className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                  <span className="material-symbols-outlined text-[18px]">android</span>Android
+                </button>
+              </div>
+            </div>
+
+            {/* Sağ — Form */}
+            <div className="flex-1 p-8 md:p-12 flex flex-col justify-center overflow-y-auto">
+              <div className="mb-7">
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">{authMode === 'login' ? 'Tekrar Hoş Geldin' : 'Hesap Oluştur'}</h3>
+                <p className="text-sm text-gray-500">{authMode === 'login' ? 'Devam etmek için giriş yap.' : 'Ücretsiz kayıt ol, hemen sipariş ver.'}</p>
+              </div>
+              <div className="flex flex-col gap-3 mb-5">
+                <button className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-sm">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Google ile devam et
+                </button>
+                <button className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#0C63D4] text-white py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-sm">
+                  <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  Facebook ile devam et
+                </button>
+              </div>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 h-px bg-gray-200" /><span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">veya</span><div className="flex-1 h-px bg-gray-200" />
+              </div>
+              <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
+                {authMode === 'register' && (
+                  <input required type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Ad Soyad"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
+                )}
+                <input required type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="E-posta adresi"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
+                <input required type="password" value={authPass} onChange={e => setAuthPass(e.target.value)} placeholder="Şifre (en az 6 karakter, rakam içermeli)"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
+                {authMode === 'register' && (
+                  <select value={authRole} onChange={e => setAuthRole(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900">
+                    <option value="customer">🛒 Müşteri</option>
+                    <option value="courier">🛵 Kurye</option>
+                    <option value="restaurant">🍽️ Restoran</option>
+                  </select>
+                )}
+                {authMode === 'login' && (
+                  <div className="flex justify-between items-center mt-1 mb-2">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#9a0002] focus:ring-[#9a0002]" />
+                      <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">Beni hatırla</span>
+                    </label>
+                    <button type="button" className="text-xs text-[#9a0002] font-semibold hover:underline">Şifremi unuttum</button>
+                  </div>
+                )}
+                {authError && <div className="px-4 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm">{authError}</div>}
+                <button type="submit" disabled={authLoading} className="w-full bg-[#9a0002] hover:bg-[#7a0001] text-white py-3.5 rounded-full text-sm font-bold transition-all shadow-md active:scale-[0.98] disabled:opacity-60 mt-1">
+                  {authLoading ? 'Lütfen bekleyin...' : authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+                </button>
+              </form>
+              {authMode === 'login' && (
+                <div className="mt-4">
+                  <button type="button" onClick={() => setShowTestAccts(v => !v)} className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors py-1">
+                    <span className="material-symbols-outlined text-[16px]">{showTestAccts ? 'expand_less' : 'expand_more'}</span>
+                    {showTestAccts ? 'Test hesaplarını gizle' : 'Test hesaplarını görüntüle'}
+                  </button>
+                  {showTestAccts && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {TEST_ACCOUNTS.map(acc => (
+                        <button key={acc.label} type="button" onClick={() => fillTest(acc)} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-gray-200 hover:border-[#9a0002] hover:bg-red-50 transition-all text-left">
+                          <span className="text-xl">{acc.icon}</span>
+                          <div>
+                            <p className="text-xs font-bold text-gray-800 leading-tight">{acc.label}</p>
+                            <p className="text-[10px] text-gray-400">{acc.sub}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <p className="text-center text-sm text-gray-500 mt-4">
+                {authMode === 'login' ? 'Hesabın yok mu? ' : 'Zaten hesabın var mı? '}
+                <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); setShowTestAccts(false) }} className="text-[#9a0002] font-semibold hover:underline">
+                  {authMode === 'login' ? 'Kayıt Ol' : 'Giriş Yap'}
+                </button>
+              </p>
+              <button type="button" onClick={closeAuth} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors mt-2 py-1">
+                Kayıt olmadan devam et
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes dropIn  { from{opacity:0;transform:translateY(-8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes scaleUp { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+      `}</style>
+    </div>
+  )
+}

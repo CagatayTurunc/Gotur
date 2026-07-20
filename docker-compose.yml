@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQL — postgis/postgis image PostGIS destekler
+  # Not: postgis/postgis:16-3.4 image'ı Docker Hub'dan çekilmezse
+  # mevcut postgres:16-alpine kullanıp PostGIS'i manuel kur
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: gotur-postgres
+    environment:
+      POSTGRES_DB: getir_replica
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - gotur_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gotur-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend/GetirReplica.API
+      dockerfile: Dockerfile
+    container_name: gotur-api
+    ports:
+      - "5131:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Default=Host=postgres;Port=5432;Database=getir_replica;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=redis:6379
+      - Jwt__Secret=gotur-super-secret-key-32-chars-min!
+      - Jwt__Issuer=GetirReplicaAPI
+      - Jwt__Audience=GetirReplicaClient
+      - Jwt__ExpiryMinutes=480
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./backend/GetirReplica.API/gotur-web
+      dockerfile: Dockerfile
+    container_name: gotur-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  gotur_pgdata:

@@ -1,0 +1,6 @@
+@GetirReplica.API_HostAddress = http://localhost:5131
+
+GET {{GetirReplica.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
