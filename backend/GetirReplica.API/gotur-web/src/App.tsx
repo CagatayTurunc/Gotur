@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { authService } from './services/authService'
 import { ThemeProvider } from './context/ThemeContext'
+import { AddressProvider } from './context/AddressContext'
+import AddressPickerModal from './components/AddressPickerModal'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import RestaurantDetailPage from './pages/RestaurantDetailPage'
@@ -47,8 +49,10 @@ function LoginRoute() {
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-      <Routes>
+      <AddressProvider>
+        <BrowserRouter>
+          <AddressPickerModal />
+          <Routes>
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
@@ -78,8 +82,9 @@ export default function App() {
         } />
         <Route path="/partner/apply" element={<PartnerApplyPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+        </BrowserRouter>
+      </AddressProvider>
     </ThemeProvider>
   )
 }

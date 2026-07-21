@@ -9,11 +9,12 @@ import type { Order } from '../types'
 type NavTab = 'dashboard' | 'orders' | 'menu' | 'analytics' | 'settings'
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
-  Pending:   { label: 'Hazırlanıyor',     cls: 'bg-[#fff3e0] text-[#b45309] border border-[#f6d28d]' },
-  Assigned:  { label: 'Kurye Bekleniyor', cls: 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]' },
-  Picked:    { label: 'Teslim Alındı',    cls: 'bg-[#e8eaf6] text-[#3949ab] border border-[#c5cae9]' },
-  Delivered: { label: 'Tamamlandı',       cls: 'bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0]' },
-  Failed:    { label: 'İptal',            cls: 'bg-[#fce8e6] text-[#c5221f] border border-[#f5c6c4]' },
+  Pending:          { label: 'Hazırlanıyor',     cls: 'bg-[#fff3e0] text-[#b45309] border border-[#f6d28d]' },
+  ReadyForPickup:   { label: 'Kurye Bekleniyor', cls: 'bg-[#e8f5e9] text-[#2e7d32] border border-[#a5d6a7]' },
+  Assigned:         { label: 'Kurye Yolda',      cls: 'bg-[#e6f4ea] text-[#137333] border border-[#ceead6]' },
+  Picked:           { label: 'Teslim Alındı',    cls: 'bg-[#e8eaf6] text-[#3949ab] border border-[#c5cae9]' },
+  Delivered:        { label: 'Tamamlandı',       cls: 'bg-[#f1f3f4] text-[#5f6368] border border-[#dadce0]' },
+  Failed:           { label: 'İptal',            cls: 'bg-[#fce8e6] text-[#c5221f] border border-[#f5c6c4]' },
 }
 
 // TOP_ITEMS artık dinamik — aşağıda orders + menuItems'dan hesaplanır
@@ -46,16 +47,18 @@ export default function RestaurantPage() {
 
   // ── Siparişler ────────────────────────────────────────────
   const fetchOrders = async () => {
-    setLoading(true)
+    // Sadece ilk yüklemede loading göster, polling'de gösterme
     try {
       const res = await orderService.getOrders({ page: 1, pageSize: 50 })
       setOrders(res.items)
+    } catch (err) {
+      console.error('Sipariş yüklenemedi:', err)
     } finally { setLoading(false) }
   }
 
   useEffect(() => {
     fetchOrders()
-    intervalRef.current = setInterval(fetchOrders, 10_000)
+    intervalRef.current = setInterval(fetchOrders, 30_000) // 10sn → 30sn
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [])
 
@@ -124,7 +127,7 @@ export default function RestaurantPage() {
 
   const handleLogout = () => { authService.logout(); navigate('/') }
 
-  const active    = orders.filter(o => ['Pending', 'Assigned'].includes(o.status))
+  const active    = orders.filter(o => ['Pending', 'ReadyForPickup', 'Assigned'].includes(o.status))
   const pickedUp  = orders.filter(o => o.status === 'Picked')
   const delivered = orders.filter(o => o.status === 'Delivered')
 
@@ -148,11 +151,11 @@ export default function RestaurantPage() {
         }
       })
   })()
-  const liveOrders = orders.filter(o => ['Pending', 'Assigned', 'Picked'].includes(o.status))
+  const liveOrders = orders.filter(o => ['Pending', 'ReadyForPickup', 'Assigned', 'Picked'].includes(o.status))
   const totalSales = delivered.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0)
 
   const handleMarkReady = async (id: string) => {
-    try { await orderService.updateStatus(id, 'Assigned'); fetchOrders() } catch {}
+    try { await orderService.updateStatus(id, 'ReadyForPickup'); fetchOrders() } catch {}
   }
 
   const navItems: { key: NavTab; icon: string; label: string }[] = [

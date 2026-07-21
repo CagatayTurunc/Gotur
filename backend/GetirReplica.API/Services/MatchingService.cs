@@ -13,10 +13,10 @@ public class MatchingService : IMatchingService
     private readonly IHubContext<TrackingHub> _hub;
     private readonly ILogger<MatchingService> _logger;
 
-    private const double MaxRadiusKm = 10.0;
+    private const double MaxRadiusKm = 99999.0; // Geliştirme: mesafe sınırı yok
     private const int MaxRetries = 3;
     private const int RetryDelaySeconds = 60;
-    private const int StaleLocationMinutes = 30; // Seed edilmiş kuryelerin de eşleşmesi için artırıldı
+    private const int StaleLocationMinutes = 1440; // 24 saat — geliştirme ortamında stale sorununu önler
 
     public MatchingService(AppDbContext db, IHubContext<TrackingHub> hub, ILogger<MatchingService> logger)
     {
@@ -40,11 +40,18 @@ public class MatchingService : IMatchingService
         var staleThreshold = DateTime.UtcNow.AddMinutes(-StaleLocationMinutes);
 
         // Tüm müsait kuryeleri çek, basit Haversine ile yakınlık filtresi uygula
+        // Busy ama aktif siparişi olmayan kuryeleri de dahil et (teslim sonrası status güncellenmemişse)
+        var busyCourierIds = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Assigned || o.Status == OrderStatus.Picked)
+            .Select(o => o.CourierId)
+            .ToListAsync();
+
         var availableCouriers = await _db.Couriers
             .Where(c =>
-                c.Status == CourierStatus.Available &&
                 c.CurrentLocationLat != null &&
-                c.LastLocationAt >= staleThreshold)
+                c.LastLocationAt >= staleThreshold &&
+                (c.Status == CourierStatus.Available ||
+                 (c.Status == CourierStatus.Busy && !busyCourierIds.Contains(c.Id))))
             .ToListAsync();
 
         var restaurantLat = order.Restaurant.LocationLat;
@@ -64,8 +71,16 @@ public class MatchingService : IMatchingService
 
         if (nearest == null)
         {
-            _logger.LogInformation("Eşleştirme: {OrderId} için uygun kurye bulunamadı. Retry #{Retry}",
-                orderId, order.RetryCount + 1);
+            var distances = availableCouriers.Select(c => new
+            {
+                courierId = c.Id,
+                distance = HaversineKm(restaurantLat, restaurantLng, c.CurrentLocationLat!.Value, c.CurrentLocationLng!.Value)
+            }).ToList();
+
+            _logger.LogWarning(
+                "Eşleştirme: {OrderId} için uygun kurye bulunamadı. Restoran: ({Lat},{Lng}). Retry #{Retry}. Kurye mesafeleri: {Distances}",
+                orderId, restaurantLat, restaurantLng, order.RetryCount + 1,
+                string.Join(", ", distances.Select(d => $"{d.courierId}={d.distance:F1}km")));
             await ScheduleRetryAsync(orderId, order.RetryCount);
             return false;
         }
@@ -139,9 +154,12 @@ public class MatchingService : IMatchingService
             return;
         }
 
-        BackgroundJob.Schedule<IMatchingService>(
-            s => s.FindAndAssignCourierAsync(orderId),
-            TimeSpan.FromSeconds(RetryDelaySeconds));
+        // Hangfire yerine basit Task.Delay ile retry — DB'ye job yazmak yerine in-memory
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(RetryDelaySeconds));
+            await FindAndAssignCourierAsync(orderId);
+        });
 
         _logger.LogInformation("Sipariş {OrderId} için retry #{Retry} zamanlandı.", orderId, order.RetryCount);
     }

@@ -24,12 +24,14 @@ public class AdminController : ControllerBase
     private readonly IOrderService _orderService;
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _userManager;
+    private readonly IMatchingService _matchingService;
 
-    public AdminController(IOrderService orderService, AppDbContext db, UserManager<AppUser> userManager)
+    public AdminController(IOrderService orderService, AppDbContext db, UserManager<AppUser> userManager, IMatchingService matchingService)
     {
         _orderService = orderService;
         _db = db;
         _userManager = userManager;
+        _matchingService = matchingService;
     }
 
     /// <summary>
@@ -213,5 +215,105 @@ public class AdminController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(new { message = $"Başvuru {(app.Status == ApplicationStatus.Approved ? "onaylandı" : "reddedildi")}.", status = app.Status.ToString() });
+    }
+
+    /// <summary>
+    /// Tüm Pending siparişleri için matching'i manuel tetikle. (Debug)
+    /// </summary>
+    [HttpPost("match-pending")]
+    public async Task<IActionResult> MatchPendingOrders()
+    {
+        var pendingOrders = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Pending)
+            .ToListAsync();
+
+        var results = new List<object>();
+        foreach (var order in pendingOrders)
+        {
+            try
+            {
+                var matched = await _matchingService.FindAndAssignCourierAsync(order.Id);
+                results.Add(new { orderId = order.Id, matched });
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { orderId = order.Id, matched = false, error = ex.Message });
+            }
+        }
+
+        // Kuryeler DB'de ne durumda, diagnostik için
+        var couriers = await _db.Couriers.ToListAsync();
+        var courierInfo = couriers.Select(c => new
+        {
+            c.Id,
+            status = c.Status.ToString(),
+            c.CurrentLocationLat,
+            c.CurrentLocationLng,
+            c.LastLocationAt
+        }).ToList();
+
+        // Tüm aktif siparişler (Assigned/Picked) — kurye eşleşmesini göster
+        var activeOrders = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Assigned || o.Status == OrderStatus.Picked)
+            .Select(o => new { o.Id, status = o.Status.ToString(), o.CourierId })
+            .ToListAsync();
+
+        // Pending siparişlerin restoran koordinatlarını göster
+        var pendingWithRestaurant = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Pending)
+            .Join(_db.Restaurants, o => o.RestaurantId, r => r.Id, (o, r) => new
+            {
+                orderId = o.Id,
+                restaurantName = r.Name,
+                restaurantLat = r.LocationLat,
+                restaurantLng = r.LocationLng,
+            })
+            .ToListAsync();
+
+        // Mesafeleri hesapla
+        var distanceInfo = pendingWithRestaurant.SelectMany(p =>
+            couriers.Select(c => new
+            {
+                orderId = p.orderId,
+                restaurantName = p.restaurantName,
+                restaurantCoord = $"{p.restaurantLat},{p.restaurantLng}",
+                courierId = c.Id,
+                courierCoord = $"{c.CurrentLocationLat},{c.CurrentLocationLng}",
+                distanceKm = c.CurrentLocationLat.HasValue
+                    ? Math.Round(HaversineKm(p.restaurantLat, p.restaurantLng, c.CurrentLocationLat.Value, c.CurrentLocationLng!.Value), 2)
+                    : -1.0,
+                withinRadius = c.CurrentLocationLat.HasValue &&
+                    HaversineKm(p.restaurantLat, p.restaurantLng, c.CurrentLocationLat.Value, c.CurrentLocationLng!.Value) <= 10.0
+            })
+        ).ToList();
+
+        return Ok(new { pendingCount = pendingOrders.Count, results, couriers = courierInfo, activeOrders, distanceInfo });
+    }
+
+    /// <summary>
+    /// Tüm kuryeleri Available yap ve lokasyonlarını güncelle. (Debug)
+    /// </summary>
+    [HttpPost("reset-couriers")]
+    public async Task<IActionResult> ResetCouriers()
+    {
+        var couriers = await _db.Couriers.ToListAsync();
+        foreach (var c in couriers)
+        {
+            c.Status = CourierStatus.Available;
+            c.LastLocationAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync();
+        return Ok(new { reset = couriers.Count, message = "Tüm kuryeler Available yapıldı." });
+    }
+
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 }

@@ -12,15 +12,19 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 401 gelirse ve kullanıcı oturum açmışsa login'e yönlendir
-// (token yokken public sayfalarda 401 dönen istekler için yönlendirme yapma)
+// 401 gelirse session'ı temizle ama background istekler için zorla yönlendirme yapma
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      // Sadece kullanıcı zaten bir sayfadaysa yönlendir,
+      // arka plan istekler (active order vb.) için sessizce hata döndür
+      const isBackgroundRequest = err.config?.url?.includes('/orders/active')
+      if (!isBackgroundRequest) {
+        window.location.href = '/?sessionExpired=1'
+      }
     }
     return Promise.reject(err)
   }

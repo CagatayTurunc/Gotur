@@ -28,7 +28,7 @@ const appStatusConfig: Record<string, { label: string; cls: string }> = {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<'orders' | 'couriers' | 'applications'>('orders')
+  const [tab, setTab] = useState<'orders' | 'couriers' | 'applications' | 'debug'>('orders')
   const [orders, setOrders] = useState<PagedResult<Order> | null>(null)
   const [couriers, setCouriers] = useState<CourierInfo[]>([])
   const [applications, setApplications] = useState<PartnershipApplication[]>([])
@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [debugResult, setDebugResult] = useState<string>('')
+  const [debugLoading, setDebugLoading] = useState(false)
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -87,6 +89,30 @@ export default function AdminPage() {
     fetchCouriers()
   }
 
+  const debugResetCouriers = async () => {
+    setDebugLoading(true)
+    setDebugResult('')
+    try {
+      const res = await api.post('/admin/reset-couriers')
+      setDebugResult(JSON.stringify(res.data, null, 2))
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: unknown } }
+      setDebugResult('HATA: ' + JSON.stringify(err.response?.data ?? e, null, 2))
+    } finally { setDebugLoading(false) }
+  }
+
+  const debugMatchPending = async () => {
+    setDebugLoading(true)
+    setDebugResult('')
+    try {
+      const res = await api.post('/admin/match-pending')
+      setDebugResult(JSON.stringify(res.data, null, 2))
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: unknown } }
+      setDebugResult('HATA: ' + JSON.stringify(err.response?.data ?? e, null, 2))
+    } finally { setDebugLoading(false) }
+  }
+
   const totalPages = orders ? Math.ceil(orders.totalCount / 15) : 1
 
   return (
@@ -96,7 +122,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-[#1a1a2e]">Admin Paneli</h1>
           <div className="flex gap-2">
-            {(['orders', 'couriers', 'applications'] as const).map(t => (
+            {(['orders', 'couriers', 'applications', 'debug'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -106,7 +132,7 @@ export default function AdminPage() {
                     : 'bg-white text-[#4a4a6a] border border-[#e0d6cc] hover:border-[#9a0002]'
                 }`}
               >
-                {t === 'orders' ? '📋 Siparişler' : t === 'couriers' ? '🛵 Kuryeler' : '🏪 Başvurular'}
+                {t === 'orders' ? '📋 Siparişler' : t === 'couriers' ? '🛵 Kuryeler' : t === 'applications' ? '🏪 Başvurular' : '🔧 Debug'}
                 {t === 'applications' && applications.filter(a => a.status === 'Pending').length > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
                     {applications.filter(a => a.status === 'Pending').length}
@@ -327,6 +353,45 @@ export default function AdminPage() {
                   )
                 })}
                 {!applications.length && <div className="py-12 text-center text-[#9a8f85]">Başvuru bulunamadı</div>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DEBUG */}
+        {tab === 'debug' && (
+          <div className="bg-white rounded-2xl border border-[#e0d6cc] p-6 space-y-4">
+            <h2 className="text-lg font-bold text-[#1a1a2e]">🔧 Matching Debug Araçları</h2>
+            <p className="text-sm text-[#9a8f85]">Kurye atama sorunlarını teşhis etmek için kullan.</p>
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={debugResetCouriers}
+                disabled={debugLoading}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition"
+              >
+                {debugLoading ? '⏳ Çalışıyor...' : '1️⃣ Kuryeleri Sıfırla (Available Yap)'}
+              </button>
+              <button
+                onClick={debugMatchPending}
+                disabled={debugLoading}
+                className="px-5 py-2.5 rounded-xl bg-[#9a0002] text-white text-sm font-bold hover:opacity-80 disabled:opacity-50 transition"
+              >
+                {debugLoading ? '⏳ Çalışıyor...' : '2️⃣ Pending Siparişleri Eşleştir'}
+              </button>
+            </div>
+
+            <div className="text-xs text-[#9a8f85] space-y-1">
+              <p><strong>Adım 1:</strong> Tüm kuryeleri Available yap → kurye durumu, LastLocationAt güncellenir</p>
+              <p><strong>Adım 2:</strong> Pending siparişleri match et → hangi kuryelerin bulunduğunu ve hataları gösterir</p>
+            </div>
+
+            {debugResult && (
+              <div>
+                <p className="text-xs font-bold text-[#1a1a2e] mb-2">Sonuç:</p>
+                <pre className="bg-[#1a1a2e] text-green-400 text-xs p-4 rounded-xl overflow-auto max-h-96 whitespace-pre-wrap">
+                  {debugResult}
+                </pre>
               </div>
             )}
           </div>

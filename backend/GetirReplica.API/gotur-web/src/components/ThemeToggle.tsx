@@ -11,15 +11,14 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
         theme === 'dark' ? 'bg-[#6f0001]' : 'bg-[#e4beb8]'
       } ${className}`}
     >
-      {/* Track icons */}
-      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[14px] select-none">☀️</span>
-      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[14px] select-none">🌙</span>
-      {/* Thumb */}
+      {/* Thumb — içinde aktif ikon */}
       <span
-        className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${
+        className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 flex items-center justify-center text-[13px] ${
           theme === 'dark' ? 'translate-x-7' : 'translate-x-0.5'
         }`}
-      />
+      >
+        {theme === 'dark' ? '🌙' : '☀️'}
+      </span>
     </button>
   )
 }

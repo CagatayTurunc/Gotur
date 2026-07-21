@@ -39,16 +39,31 @@ public class OrdersController : ControllerBase
         var customerId = GetCurrentUserId();
         var order = await _orderService.CreateOrderAsync(dto, customerId);
 
-        // Eşleştirmeyi arka planda yeni bir scope ile başlat (fire-and-forget)
-        // Scoped servisleri (AppDbContext) request scope'unun dışında kullanmak için
-        // yeni bir DI scope oluşturmak gerekir.
-        var orderId = order.Id;
-        _ = Task.Run(async () =>
+        // Eşleştirmeyi 3sn içinde tamamlamaya çalış, yoksa arka planda devam et
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
         {
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var matchingService = scope.ServiceProvider.GetRequiredService<IMatchingService>();
-            await matchingService.FindAndAssignCourierAsync(orderId);
-        });
+            await _matchingService.FindAndAssignCourierAsync(order.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout — arka planda devam et
+            var orderId = order.Id;
+            _ = Task.Run(async () =>
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var svc = scope.ServiceProvider.GetRequiredService<IMatchingService>();
+                await svc.FindAndAssignCourierAsync(orderId);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Matching] {order.Id}: {ex.Message}");
+        }
+        finally
+        {
+            cts.Dispose();
+        }
 
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
     }
@@ -128,7 +143,7 @@ public class OrdersController : ControllerBase
     /// Sipariş durumunu güncelle. Geçersiz geçişler reddedilir.
     /// </summary>
     [HttpPatch("{id:guid}/status")]
-    [Authorize(Roles = "courier,admin")]
+    [Authorize(Roles = "courier,admin,restaurant")]
     [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateOrderStatusDto dto)

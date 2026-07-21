@@ -6,6 +6,7 @@ import HelpDrawer from '../components/HelpDrawer'
 import ThemeToggle from '../components/ThemeToggle'
 import api from '../services/api'
 import type { Restaurant } from '../types'
+import { useAddress } from '../context/AddressContext'
 
 const CAMPAIGNS = [
   { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJ-O91j0bsm7n7YnWinyNPttecnXGULxJaOvfGSET7O4wr2y9BQ4hr_fyf1ZxX8jVvLVDZfZVO_GQJ91ECGTj_T76AGy9GEMagESyX-JEk16edmdwFSbBjD9KJ2eDJnjFxAYiFIXKyDYxr6BsE7oyp5bAcLxkFAThvh6K54SLwkZq96GGLh-U4MOXae4H-4KmfhuWITxj6FJOyfpd5Vf-NzLhI3XjIraGw1fBmRzVuuYwr-1WNz0JktADFmuz26rvc-xLFFTMKPrQ' },
@@ -14,14 +15,31 @@ const CAMPAIGNS = [
   { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKdY1yBHICNgMLat9_ODvQfjdJnMtJ71HgoUzLpy81kvhrQF4NnCmhooileh4XUCeiAtLGFD5Mc_8fAOLJytROiREqqlUQuKt7yUiH1DRx9vGkFwW_buDfufPRxmm0PRWsmXnnwXjua9xmu2sM90HVABf4QpIisY1drwlFJPc_dXzwFa8olSS2YN0-Ra5J-p_mbpuriDD6_HHq8jF_MLu2bFKirciCK-AQ7yHQiH52rQhp5KW1oWujA5z-Zatb1sRnUB_bFig0--g' },
 ]
 
-// Mock restoranlar — API boş döndüğünde bunlar gösterilir
+// Mock restoranlar — Etimesgut/Ankara gerçek lokantaları
 const MOCK_RESTAURANTS: Restaurant[] = [
-  { id: 'mock-1', name: 'Coni & Co',        address: 'Beşiktaş, İstanbul', description: 'Lezzetli tavuk yemekleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCEKE7ApXh1syXn-y4iPNtta4jLZz13nhzkzLC0UzpxXvgDYhQtuDTcYuYNvBZph8o14NkB2XuWNukQR_-0gljuSe70AnkLxfE7TcF6gblXJON1lhwDQY-wJVdD5ersTgl1YjrfaPmpjenC98FXVxdjDfR9tVGZYxYc2bgOiAfDwRdQDrMIpPxiLYFyP0xCNyr78VpDQxibAeVs7haGeN9agUmLQZsOaoy_tgo6g4jcjQXEklAxZUnXM3Np1m-5P1pvMfhXYy9SzRM', isOpen: true, locationLat: 41.04, locationLng: 29.01 },
-  { id: 'mock-2', name: 'Bursa İshakbey',   address: 'Kadıköy, İstanbul',  description: 'Gerçek Bursa döneri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhqcMswmIu2Oubojs8TnyoUH3Wma18TKrUaVUrOS_LqIeeMqnc6YY2FOgMtnSBHI1Z7-5mPGLdZG5QM7gBJ5pJisIv6C95hHg7-Gqd5oJ5xGWS_X_K1Ubd_0iN0fNQufBb-E3UJS7LUrwneXhBYkpy-IDkWA7IDxbCkTPEMgGcnHTvAZIBNS3KODy6nsYHZmbcgHA6MMuYinmD_CxitDgSCyZPKdpwU3Zx2SjnCSFnfha6jBBVu_hFnjtiSJ-2S4x6VSCkI9CQKe8', isOpen: true, locationLat: 40.99, locationLng: 29.03 },
-  { id: 'mock-3', name: 'Pişi Pişi Pankek', address: 'Şişli, İstanbul',    description: 'Tüm ürünlerde %20 indirim', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAuSJFDqGDo8pZSQvh62lcCfOtmeFAzaoN75omuQekL5cnMzL1mB5Dhw8JttDUhaMJ-8HStFlBxb_GKwqaNCe_5El6AJi1QTx4UNZs_ouSGliQmK9oBZZ7D2zNfNL1Yik4mcu3aMDQDAWVvSCYYFitEGk4KE_8EXbvsS_fr0fp86JvqnMeeV2Qr5wqCegBDbbetDjOOjUbv3dlsYt-x6-he9gVzZ3MBTSxIy1unC-HkEWX8v2yVce5B_3WuWvWhbfN51aslyML8v3c', isOpen: true, locationLat: 41.06, locationLng: 28.98 },
-  { id: 'mock-4', name: 'Cali Bowl',        address: 'Nişantaşı, İstanbul', description: 'Sağlıklı bowl seçenekleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9TRNAuLostDL709Yol1W3KZFq46pQQR4r_-DofCEqy8FY6XkWl0_vkvbBrscL9lBvQ5pMyh9prgkI0d8e6B9AzcIvRC5HikZkS3AZccC3OWwy7wavBK-LSD_2PsYFU_AFrZyjnjlJiDzDkNrn5kjVibTfMCkT5JEoxib9pC2k0qzOPAmQZbbmYZEujg9I6swHB50Vjw-rnK2I_RLTiTTccimNcFH52bUxL9r2JKxDMCS5mOF7GPvjdpC2XknqpOj-ChE71nWvXG8', isOpen: true, locationLat: 41.05, locationLng: 28.99 },
-  { id: 'mock-5', name: 'Makarnam',         address: 'Üsküdar, İstanbul',   description: 'Ev yapımı makarna çeşitleri', logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1JW2E9vb5eVI7yW8-FOHf-cHXiSZJm59DjRzXCRvLeNIBlwJDwvRMHR5MxzXBGqHgBJ5G5eTyaAUq-x_rp465dE7iPVwiDMjFI6uE_FEqltHGT4M99MsgcZz2OFH5T1XZZFdSyOkhd0wOp90oPRO7g00T3t8tJcqHF0RGqCc7EUV7X2Mry9YeltsHVto-1obwPFj3rC8idHoqt-thBE5CTpoKzOA6EO6B_yBubsmLE9VG-gjIglfKSkHa8B3AD_HXAvrlXMpQitM', isOpen: true, locationLat: 41.02, locationLng: 29.02 },
+  // Etimesgut çevresi — gerçek lokantalar
+  { id: 'mock-1', name: 'Çağdaş Pide Kebap Salonu', address: 'Atakent Mah. Şht. Celal İşen Sk. No:2, Etimesgut', description: 'Etimesgut\'un vazgeçilmez pide ve kebap durağı. Odun ateşinde kavurmalı pide.', logoUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9478, locationLng: 32.6612 },
+  { id: 'mock-2', name: 'Annem Elvan Sofrası',       address: 'Elvan Mah. Ahi Elvan Cd. No:2/C, Etimesgut',       description: 'Ev sıcaklığında günlük yemekler. Taze hazırlanan tabldot ve ev yemekleri.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9410, locationLng: 32.6720 },
+  { id: 'mock-3', name: 'Meşhur Ciğerci İdris Usta', address: 'Elvan Mah. Ahi Elvan Cd. No:34/B, Etimesgut',      description: 'Etimesgut\'un efsane ciğercisi. Taze dana ciğeri ve el yapımı köfte.', logoUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9418, locationLng: 32.6708 },
+  { id: 'mock-4', name: 'Hocam Piknik',              address: 'Piyade Mah. İstasyon Cad. No:215, Etimesgut',       description: 'Etimesgut\'un gözde mangal restoranı. Közde taze etler, bahçede yemek keyfi.', logoUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9502, locationLng: 32.6648 },
+  { id: 'mock-5', name: 'Çağdaş Pide Kebap - Atakent', address: 'Atakent, 1478. Cad. No:1, Etimesgut',            description: 'Geleneksel Türk mutfağından seçme kebap ve pide çeşitleri.', logoUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9465, locationLng: 32.6635 },
+  // Ankara merkez — adres seçilmeden gösterilir, adres girilince filtre kapsar
+  { id: 'mock-6', name: 'Bolu Akın Lokantası',       address: 'Kızılay, Çankaya, Ankara',                         description: 'Bolu usulü geleneksel Türk yemekleri. Kuzu incik, pilav ve mevsim tatlıları.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9208, locationLng: 32.8541 },
+  { id: 'mock-7', name: 'Mezzaluna Bilkent',         address: 'Bilkent, Çankaya, Ankara',                         description: 'Ankara\'nın en iyi İtalyan mutfağı. Taze makarna ve ahşap fırında pizza.', logoUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.8730, locationLng: 32.7490 },
+  { id: 'mock-8', name: 'Uludağ İskender Ankara',    address: 'Bahçelievler, Çankaya, Ankara',                    description: 'Bursa usulü gerçek İskender kebabı, tereyağı ve domates sosuyla.', logoUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop', isOpen: true, locationLat: 39.9300, locationLng: 32.8200 },
 ]
+
+/* ── Haversine mesafe (km) ── */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const DELIVERY_RADIUS_KM = 10 // Teslimat yarıçapı
 
 const TEST_ACCOUNTS = [
   { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'musteri@test.com',  password: 'Test123!'  },
@@ -40,6 +58,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = authService.getUser()
+  const { selectedAddress, openPicker } = useAddress()
 
   const [promoBanner, setPromoBanner] = useState(true)
   const [promoCard,   setPromoCard]   = useState(true)
@@ -53,16 +72,25 @@ export default function HomePage() {
   const [activeOrder, setActiveOrder] = useState<{ id: string; status: string; restaurantName?: string } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Aktif sipariş kontrolü — kullanıcı giriş yapmışsa
+  // Aktif sipariş kontrolü — kullanıcı giriş yapmışsa veya sayfaya her gelinişte
   useEffect(() => {
-    if (!user || user.role !== 'customer') return
-    orderService.getOrders({ page: 1, pageSize: 10 })
-      .then(res => {
-        const active = res.items.find(o => ['Pending', 'Assigned', 'Picked'].includes(o.status))
-        if (active) setActiveOrder({ id: active.id, status: active.status })
+    if (!user || user.role !== 'customer') { setActiveOrder(null); return }
+    orderService.getActiveOrder()
+      .then(order => {
+        setActiveOrder(order ? { id: order.id, status: order.status } : null)
       })
-      .catch(() => {})
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+      .catch((err) => {
+        const status = (err as { response?: { status?: number } })?.response?.status
+        if (status === 401) { setActiveOrder(null); return } // token expired, sessizce geç
+        // /orders/active yoksa fallback: kendi siparişlerinden aktif olanı bul
+        orderService.getMyOrders({ page: 1, pageSize: 20 })
+          .then(res => {
+            const active = res.items.find(o => ['Pending', 'ReadyForPickup', 'Assigned', 'Picked'].includes(o.status))
+            setActiveOrder(active ? { id: active.id, status: active.status } : null)
+          })
+          .catch(() => {})
+      })
+  }, [user?.id, location.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [authOpen,      setAuthOpen]      = useState(false)
   const [authMode,      setAuthMode]      = useState<AuthMode>('login')
@@ -157,19 +185,39 @@ export default function HomePage() {
     } finally { setAuthLoading(false) }
   }
 
-  // Gerçek restoranlar + mock'lar her zaman birlikte gösterilir
-  // Gerçek olanlar üstte, mock'lar altta
+  // Gerçek restoranlar + mock'lar birleştirilir
   const openRealRests = apiRests.filter(r => r.isOpen)
-  const displayRests  = [...openRealRests, ...MOCK_RESTAURANTS]
-  const sorted = [...displayRests].sort((a, b) =>
-    sortBy === 'time' ? a.name.localeCompare(b.name) : 0
-  )
+  const allRests = [...openRealRests, ...MOCK_RESTAURANTS]
+
+  // Adres seçiliyse mesafe filtresi uygula, yoksa hepsini göster
+  const displayRests = selectedAddress
+    ? allRests.filter(r =>
+        haversineKm(selectedAddress.lat, selectedAddress.lng, r.locationLat, r.locationLng) <= DELIVERY_RADIUS_KM
+      )
+    : allRests
+
+  // Sıralama
+  const sorted = [...displayRests].sort((a, b) => {
+    if (sortBy === 'distance' && selectedAddress) {
+      return haversineKm(selectedAddress.lat, selectedAddress.lng, a.locationLat, a.locationLng)
+           - haversineKm(selectedAddress.lat, selectedAddress.lng, b.locationLat, b.locationLng)
+    }
+    if (sortBy === 'time') return a.name.localeCompare(b.name)
+    return 0
+  })
 
   const toggleFav    = (e: React.MouseEvent, name: string) => {
     e.stopPropagation()
     setFavorites(p => { const s = new Set(p); s.has(name) ? s.delete(name) : s.add(name); return s })
   }
-  const goRestaurant = (id: string) => navigate(id.startsWith('mock') ? '/restaurants/demo' : `/restaurants/${id}`)
+  const goRestaurant = (id: string) => {
+    if (id.startsWith('mock')) {
+      const mock = MOCK_RESTAURANTS.find(r => r.id === id)
+      navigate(`/restaurants/${id}`, { state: { mockRestaurant: mock } })
+    } else {
+      navigate(`/restaurants/${id}`)
+    }
+  }
   const handleLogout = () => { setUserMenu(false); authService.logout(); navigate('/') }
 
   const menuItems = [
@@ -203,9 +251,10 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse flex-shrink-0" />
             <span className="text-sm font-semibold">
-              {activeOrder.status === 'Pending'  && '🍳 Siparişin hazırlanıyor...'}
-              {activeOrder.status === 'Assigned' && '🛵 Kurye siparişini almak üzere...'}
-              {activeOrder.status === 'Picked'   && '🚀 Siparişin yolda, az kaldı!'}
+              {activeOrder.status === 'Pending'        && '🍳 Siparişin hazırlanıyor...'}
+              {activeOrder.status === 'ReadyForPickup' && '✅ Sipariş hazır, kurye bekleniyor...'}
+              {activeOrder.status === 'Assigned'       && '🛵 Kurye siparişini almak üzere...'}
+              {activeOrder.status === 'Picked'         && '🚀 Siparişin yolda, az kaldı!'}
             </span>
           </div>
           <button
@@ -222,10 +271,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 md:px-12 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-start">
             <button onClick={() => navigate('/')} className="text-2xl font-black italic tracking-tight" style={{ color: 'var(--accent)' }}>Götür</button>
-            <button className="hidden md:flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
-              <span className="material-symbols-outlined text-[18px]">location_on</span>
-              <span className="font-semibold truncate max-w-[200px]">Teslimat Adresi Seçin</span>
-              <span className="material-symbols-outlined text-[18px]">expand_more</span>
+            <button onClick={openPicker} className="flex items-center gap-1 text-sm hover:opacity-70 transition-opacity flex-1 md:flex-none justify-center md:justify-start" style={{ color: 'var(--text-primary)' }}>
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0" style={{ color: 'var(--accent)' }}>location_on</span>
+              <span className="font-semibold truncate max-w-[180px] md:max-w-[200px]">
+                {selectedAddress ? selectedAddress.fullAddress.split(',')[0] : 'Teslimat Adresi Seçin'}
+              </span>
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0">expand_more</span>
             </button>
           </div>
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -380,19 +431,49 @@ export default function HomePage() {
 
         {/* Ana İçerik */}
         <div className="col-span-1 md:col-span-9 space-y-8">
-          <section className="rounded-2xl overflow-hidden relative min-h-[180px] flex items-center" style={{ backgroundColor: 'var(--accent-soft)' }}>
-            <div className="relative z-10 p-6 md:p-10 w-full md:w-2/3">
-              <h2 className="text-2xl md:text-4xl font-black leading-tight" style={{ color: 'var(--text-primary)' }}>
-                İlk siparişinde<br />ücretsiz teslimat<br />için kayıt ol
-              </h2>
-              <button onClick={() => openAuth('register')} className="mt-5 px-7 py-3 rounded-full text-sm font-bold text-white shadow-md hover:opacity-90 transition-opacity active:scale-95" style={{ backgroundColor: 'var(--accent)' }}>
-                Kayıt Ol
-              </button>
+          {/* Uygulama İndirme Banner */}
+          <section className="rounded-2xl overflow-hidden relative flex items-center justify-between px-6 md:px-10 py-6 gap-4" style={{ backgroundColor: '#fde8e8', minHeight: '140px' }}>
+            {/* Sol: QR + Metin + Butonlar */}
+            <div className="flex items-center gap-5 flex-1 min-w-0">
+              {/* QR Kodu */}
+              <div className="hidden sm:flex flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 bg-white items-center justify-center relative shadow-sm" style={{ borderColor: '#c9a0a0' }}>
+                <img
+                  className="w-full h-full object-contain p-1"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBohFUiEaJ22V8QpNOvuI6hjKiBcH6fdP_vudYNTsp3l8JBqscZrwx2LXOr72qFaMBTee6BhaUtOQaA438tUnX-KaEj8E8buDriitsTTwD3fkw3a0WAI6qGjk5r1kK7SpMtLsqNle078u_qo3-DvXFNW26mI2m3sJxORvWrlJq9nJrzAMqzKbQphvofZu_YN50vwHFFH2dT0JHSa_TSQrkCam80O8-cUaYUMLGT1LR58pctQCcHuAEhnT5YY-2NKw0XEDKZ8jkQ0XY"
+                  alt="QR Kod"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-7 h-7 rounded-full text-white font-black italic text-xs flex items-center justify-center shadow-md" style={{ backgroundColor: '#7c0000' }}>G</div>
+                </div>
+              </div>
+              {/* Metin */}
+              <div className="min-w-0">
+                <h2 className="text-lg md:text-2xl font-black leading-snug mb-1" style={{ color: '#2d1212' }}>
+                  Size özel kampanyalar ve çok<br className="hidden md:block" />
+                  daha fazlası <span style={{ color: '#7c0000' }}>Götür Mobil</span> ile
+                </h2>
+                <p className="text-xs md:text-sm mb-3 leading-relaxed" style={{ color: '#7a4040' }}>
+                  Yemekten market ürünlerine ve fazlasına özel fırsatlar Götür'de
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <button className="flex items-center gap-1.5 border-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all hover:opacity-80 bg-white" style={{ borderColor: '#2d1212', color: '#2d1212' }}>
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                    App Store
+                  </button>
+                  <button className="flex items-center gap-1.5 border-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all hover:opacity-80 bg-white" style={{ borderColor: '#2d1212', color: '#2d1212' }}>
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M3.18 23.76c.3.17.63.24.97.2l13.09-7.37-2.76-2.76-11.3 9.93zM.54 1.43C.2 1.75 0 2.28 0 2.97v18.06c0 .69.2 1.22.54 1.54l.08.08 10.12-10.12v-.24L.62 1.35l-.08.08zM20.48 10.17l-2.79-1.57-3.08 3.08 3.08 3.08 2.81-1.58c.8-.45.8-1.19-.02-1.01zM4.15.24L17.24 7.6l-2.76 2.76L3.18.63c.3-.35.65-.52.97-.39z"/></svg>
+                    Play Store
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="hidden md:block absolute right-0 bottom-0 h-full w-1/3">
-              <img className="h-full w-full object-cover object-left"
+            {/* Sağ: Karakter görseli */}
+            <div className="hidden md:flex flex-shrink-0 items-end justify-center h-full" style={{ minWidth: '120px' }}>
+              <img
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsXZlxv_fzer3A8tRXQjydRXWbeSJiZrU0X7JjnTolCwddXYRyzE6KkHI9Bqnu9MKwAdhz-yDZ-TreeSVt6P-WglTPQ54afsKQrxU_BE7_EqzbWkknvUhAm0LNIx-WuTIE8veacogTncUB8DHJipFv_9F2DjI28mRsmJyJi1ZPzLoogljgHvSpeF4AF0RiPHqRO7mnurbh3Mp3MJ-FnyzCrYG9Ftr17XeD3-_I4Ly-mWsJYtC1-NBMUsiviFBRKaMqtqDTt6bHIg4"
-                alt="Promo" />
+                alt="Uygulama"
+                className="h-32 object-contain drop-shadow-md"
+              />
             </div>
           </section>
 
@@ -409,40 +490,94 @@ export default function HomePage() {
 
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>Tüm Restoranlar</h2>
+              <div>
+                <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>
+                  {selectedAddress ? `${sorted.length} Restoran Bulundu` : 'Tüm Restoranlar'}
+                </h2>
+                {selectedAddress && (
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="material-symbols-outlined text-[13px] align-middle mr-0.5">location_on</span>
+                    {selectedAddress.fullAddress.split(',')[0]} · {DELIVERY_RADIUS_KM} km içinde
+                  </p>
+                )}
+              </div>
+              {!selectedAddress && (
+                <button
+                  onClick={openPicker}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all hover:opacity-80"
+                  style={{ borderColor: 'var(--accent)', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)' }}
+                >
+                  <span className="material-symbols-outlined text-[14px]">my_location</span>
+                  Konum seç
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {sorted.map(r => (
-                <div key={r.id} onClick={() => goRestaurant(r.id)}
-                  className="rounded-xl overflow-hidden border group cursor-pointer transition-shadow hover:shadow-lg"
-                  style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
-                  <div className="relative h-48 bg-[#fff0ee] flex items-center justify-center overflow-hidden">
-                    {r.logoUrl ? (
-                      <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={r.logoUrl} alt={r.name} />
-                    ) : (
-                      <span className="material-symbols-outlined text-[64px]" style={{ color: '#e4beb8' }}>restaurant</span>
-                    )}
-                    <button onClick={e => toggleFav(e, r.name)} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
-                      <span className="material-symbols-outlined text-[18px]"
-                        style={{ color: favorites.has(r.name) ? 'var(--accent)' : 'var(--text-muted)', fontVariationSettings: favorites.has(r.name) ? "'FILL' 1" : "'FILL' 0" }}>
-                        favorite
-                      </span>
-                    </button>
-                  </div>
-                  <div className="p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-sm font-black truncate flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
-                        <span className="material-symbols-outlined text-[16px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>verified</span>
-                        {r.name}
-                      </h3>
-                    </div>
-                    <p className="text-xs mb-1 truncate" style={{ color: 'var(--text-muted)' }}>{r.address}</p>
-                    {r.description && (
-                      <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{r.description}</p>
-                    )}
-                  </div>
+
+            {/* Adres seçili ama sonuç yok */}
+            {selectedAddress && sorted.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <span className="material-symbols-outlined text-[56px]" style={{ color: 'var(--text-muted)' }}>location_off</span>
+                <div className="text-center">
+                  <p className="font-black text-base" style={{ color: 'var(--text-primary)' }}>Bu bölgede restoran yok</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    {DELIVERY_RADIUS_KM} km yarıçapında hizmet veren restoran bulunamadı.
+                  </p>
                 </div>
-              ))}
+                <button
+                  onClick={openPicker}
+                  className="px-5 py-2.5 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+                  style={{ backgroundColor: 'var(--accent)' }}
+                >
+                  Farklı Adres Seç
+                </button>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {sorted.map(r => {
+                const distKm = selectedAddress
+                  ? haversineKm(selectedAddress.lat, selectedAddress.lng, r.locationLat, r.locationLng)
+                  : null
+                return (
+                  <div key={r.id} onClick={() => goRestaurant(r.id)}
+                    className="rounded-xl overflow-hidden border group cursor-pointer transition-shadow hover:shadow-lg"
+                    style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                    <div className="relative h-48 bg-[#fff0ee] flex items-center justify-center overflow-hidden">
+                      {r.logoUrl ? (
+                        <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={r.logoUrl} alt={r.name} />
+                      ) : (
+                        <span className="material-symbols-outlined text-[64px]" style={{ color: '#e4beb8' }}>restaurant</span>
+                      )}
+                      <button onClick={e => toggleFav(e, r.name)} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
+                        <span className="material-symbols-outlined text-[18px]"
+                          style={{ color: favorites.has(r.name) ? 'var(--accent)' : 'var(--text-muted)', fontVariationSettings: favorites.has(r.name) ? "'FILL' 1" : "'FILL' 0" }}>
+                          favorite
+                        </span>
+                      </button>
+                      {/* Mesafe badge */}
+                      {distKm !== null && (
+                        <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(4px)' }}>
+                          <span className="material-symbols-outlined text-[12px]">directions_bike</span>
+                          {distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-sm font-black truncate flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                          <span className="material-symbols-outlined text-[16px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>verified</span>
+                          {r.name}
+                        </h3>
+                      </div>
+                      <p className="text-xs mb-1 truncate" style={{ color: 'var(--text-muted)' }}>{r.address}</p>
+                      {r.description && (
+                        <p className="text-xs line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{r.description}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </section>
         </div>

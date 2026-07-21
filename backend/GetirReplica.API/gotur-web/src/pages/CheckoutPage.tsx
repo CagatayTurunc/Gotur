@@ -10,6 +10,7 @@ import {
   maskCardNumber, getSavedCards, saveCard as persistCard,
   type SavedCard,
 } from '../utils/cardUtils'
+import { useAddress } from '../context/AddressContext'
 
 type PaymentMethod = 'credit_card' | 'wallet' | 'cash'
 
@@ -29,6 +30,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const user = authService.getUser()
+  const { selectedAddress, openPicker } = useAddress()
 
   // Items passed from RestaurantDetailPage via state, or sample fallback
   const state = location.state as LocationState | null
@@ -52,9 +54,11 @@ export default function CheckoutPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card')
-  const [address, setAddress]             = useState('Caferağa Mah. Moda Cad. No: 123 Daire: 4\nKadıköy, İstanbul')
-  const [lat, setLat]                     = useState('40.9906')
-  const [lng, setLng]                     = useState('29.0287')
+
+  // Adres context'ten okunur; yoksa boş
+  const address = selectedAddress?.fullAddress ?? ''
+  const lat     = selectedAddress?.lat.toString() ?? ''
+  const lng     = selectedAddress?.lng.toString() ?? ''
   const [cardNumber, setCardNumber]       = useState('')
   const [cardExp, setCardExp]             = useState('')
   const [cardCvv, setCardCvv]             = useState('')
@@ -79,7 +83,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = async () => {
     if (!user) { navigate('/login'); return }
-    if (!address.trim()) { setError('Teslimat adresi gerekli.'); return }
+    if (!selectedAddress) { setError('Lütfen önce teslimat adresinizi seçin.'); openPicker(); return }
     if (!restaurantId) { setError('Restoran bilgisi yüklenemedi, lütfen sayfayı yenileyin.'); return }
     if (paymentMethod === 'credit_card' && !selectedSaved) {
       const errs: typeof cardErrors = {}
@@ -111,8 +115,11 @@ export default function CheckoutPage() {
     try {
       const order = await orderService.createOrder({
         restaurantId,
-        deliveryAddress: address.replace(/\n/g, ' ').trim(),
-        deliveryLocation: { latitude: parseFloat(lat), longitude: parseFloat(lng) },
+        deliveryAddress: address.trim(),
+        deliveryLocation: {
+          latitude:  selectedAddress!.lat,
+          longitude: selectedAddress!.lng,
+        },
         items: passedItems,
       })
       navigate(`/tracking/${order.id}`)
@@ -192,46 +199,62 @@ export default function CheckoutPage() {
               {/* Teslimat Adresi */}
               <section>
                 <h2 className="text-xl font-black mb-4" style={pStyle}>Teslimat Adresi</h2>
-                <div className="rounded-xl p-4 md:p-5 shadow-sm border flex flex-col sm:flex-row gap-4 sm:items-start" style={cardStyle}>
-                  {/* Harita önizleme */}
-                  <div className="w-full sm:w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 relative border" style={{ borderColor: 'var(--border)' }}>
-                    <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1WpucsAioiw80YDSsyRp6YjBt9CvTSCbodbaO7bqv753e1o4UdR-yrwhEUkCDIaQ63Gudp1MFF-hZzwi8UefX0bWN3JHpdXGQ8aAfWHpozDn588-wzOGmObc8Lw_VT58KS9CHxb8ai-HEJW6LZAZstT1fHrLFz7kpsLSjQMq_-7iC9d0AqouuD-yQIx2DLPvccFylMWPV-QhF9lStd1q0CUhehwBx7p1bauCLvZvCBrsZwk3A2B2QUW1M1K5MC3Sb_ozorXBWbgI"
-                      alt="Harita" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                    <span className="material-symbols-outlined absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[28px] drop-shadow-md"
-                      style={{ ...aStyle, fontVariationSettings: "'FILL' 1" }}>location_on</span>
-                  </div>
-                  {/* Adres detay */}
-                  <div className="flex-grow">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-sm font-bold flex items-center gap-2" style={pStyle}>
-                          Ev
-                          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>Varsayılan</span>
-                        </h3>
-                        <textarea value={address} onChange={e => setAddress(e.target.value)} rows={2}
-                          className="mt-1 w-full bg-transparent border-none focus:ring-0 text-sm resize-none outline-none"
-                          style={sStyle} />
-                      </div>
-                      <button className="text-sm font-semibold shrink-0 px-2 py-1 rounded-lg hover:opacity-70 transition-opacity" style={aStyle}>Değiştir</button>
+
+                {!selectedAddress ? (
+                  /* Adres seçilmemiş */
+                  <button
+                    onClick={openPicker}
+                    className="w-full flex items-center gap-4 p-5 rounded-xl border-2 border-dashed transition-all hover:opacity-80"
+                    style={{ borderColor: 'var(--accent)', backgroundColor: 'var(--accent-soft)' }}
+                  >
+                    <span className="material-symbols-outlined text-[28px]" style={aStyle}>add_location_alt</span>
+                    <div className="text-left">
+                      <p className="text-sm font-bold" style={aStyle}>Teslimat Adresi Ekle</p>
+                      <p className="text-xs mt-0.5" style={sStyle}>GPS ile otomatik tespit veya adres ara</p>
                     </div>
-                    <div className="flex items-center gap-1 text-xs mt-2" style={sStyle}>
-                      <span className="material-symbols-outlined text-[15px]">schedule</span>
-                      Tahmini Teslimat: 15-20 dk
+                  </button>
+                ) : (
+                  <div className="rounded-xl p-4 md:p-5 shadow-sm border flex flex-col sm:flex-row gap-4 sm:items-start" style={cardStyle}>
+                    {/* OpenStreetMap static harita önizleme */}
+                    <div className="w-full sm:w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 relative border" style={{ borderColor: 'var(--border)' }}>
+                      <img
+                        src={`https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=128x96&markers=${lat},${lng},red`}
+                        alt="Harita"
+                        className="w-full h-full object-cover"
+                        onError={e => {
+                          // fallback: genel harita görseli
+                          ;(e.target as HTMLImageElement).src = `https://tile.openstreetmap.org/15/${Math.floor((parseFloat(lng) + 180) / 360 * Math.pow(2, 15))}/${Math.floor((1 - Math.log(Math.tan(parseFloat(lat) * Math.PI / 180) + 1 / Math.cos(parseFloat(lat) * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, 15))}.png`
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      <span className="material-symbols-outlined absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[28px] drop-shadow-md"
+                        style={{ ...aStyle, fontVariationSettings: "'FILL' 1" }}>location_on</span>
                     </div>
-                    {/* Koordinatlar (küçük, geliştiriciye) */}
-                    <div className="flex gap-3 mt-3">
-                      {[{ label: 'Enlem', val: lat, set: setLat }, { label: 'Boylam', val: lng, set: setLng }].map(f => (
-                        <div key={f.label} className="flex-1">
-                          <label className="text-[10px] font-semibold uppercase tracking-wide mb-0.5 block" style={sStyle}>{f.label}</label>
-                          <input type="number" step="any" value={f.val} onChange={e => f.set(e.target.value)}
-                            className="w-full rounded-lg px-2 py-1.5 text-xs border outline-none focus:ring-1 transition-all"
-                            style={inputStyle} />
+                    {/* Adres detay */}
+                    <div className="flex-grow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <h3 className="text-sm font-bold flex items-center gap-2" style={pStyle}>
+                            {selectedAddress.label}
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>Seçili</span>
+                          </h3>
+                          <p className="mt-1 text-sm leading-relaxed" style={sStyle}>{selectedAddress.fullAddress}</p>
                         </div>
-                      ))}
+                        <button
+                          onClick={openPicker}
+                          className="text-sm font-semibold shrink-0 px-3 py-1.5 rounded-lg hover:opacity-70 transition-opacity border"
+                          style={{ ...aStyle, borderColor: 'var(--accent)', backgroundColor: 'var(--accent-soft)' }}
+                        >
+                          Değiştir
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs mt-2" style={sStyle}>
+                        <span className="material-symbols-outlined text-[15px]">schedule</span>
+                        Tahmini Teslimat: 15-20 dk
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </section>
 
               {/* Ödeme Yöntemi */}

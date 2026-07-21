@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { restaurantService, type MenuItem } from '../services/restaurantService'
 import ThemeToggle from '../components/ThemeToggle'
@@ -29,7 +29,62 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 // ── Placeholder resim ─────────────────────────────────────────────────────────
-const PLACEHOLDER = 'https://lh3.googleusercontent.com/aida-public/AB6AXuCEKE7ApXh1syXn-y4iPNtta4jLZz13nhzkzLC0UzpxXvgDYhQtuDTcYuYNvBZph8o14NkB2XuWNukQR_-0gljuSe70AnkLxfE7TcF6gblXJON1lhwDQY-wJVdD5ersTgl1YjrfaPmpjenC98FXVxdjDfR9tVGZYxYc2bgOiAfDwRdQDrMIpPxiLYFyP0xCNyr78VpDQxibAeVs7haGeN9agUmLQZsOaoy_tgo6g4jcjQXEklAxZUnXM3Np1m-5P1pvMfhXYy9SzRM'
+const PLACEHOLDER = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop'
+
+// ── Mock restoran tanımları (state'e gerek kalmadan) ─────────────────────────
+const MOCK_RESTAURANTS_DATA: Record<string, { name: string; address: string; description: string; logoUrl: string }> = {
+  'mock-1': { name: 'Çağdaş Pide Kebap Salonu', address: 'Atakent Mah. Şht. Celal İşen Sk. No:2, Etimesgut', description: 'Etimesgut\'un vazgeçilmez pide ve kebap durağı. Odun ateşinde kavurmalı pide.', logoUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop' },
+  'mock-2': { name: 'Annem Elvan Sofrası', address: 'Elvan Mah. Ahi Elvan Cd. No:2/C, Etimesgut', description: 'Ev sıcaklığında günlük yemekler. Taze hazırlanan tabldot ve ev yemekleri.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop' },
+  'mock-3': { name: 'Meşhur Ciğerci İdris Usta', address: 'Elvan Mah. Ahi Elvan Cd. No:34/B, Etimesgut', description: 'Etimesgut\'un efsane ciğercisi. Taze dana ciğeri ve el yapımı köfte.', logoUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop' },
+  'mock-4': { name: 'Hocam Piknik', address: 'Piyade Mah. İstasyon Cad. No:215, Etimesgut', description: 'Etimesgut\'un gözde mangal restoranı. Közde taze etler, bahçede yemek keyfi.', logoUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop' },
+  'mock-5': { name: 'Çağdaş Pide Kebap - Atakent', address: 'Atakent, 1478. Cad. No:1, Etimesgut', description: 'Geleneksel Türk mutfağından seçme kebap ve pide çeşitleri.', logoUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=400&fit=crop' },
+  'mock-6': { name: 'Bolu Akın Lokantası', address: 'Kızılay, Çankaya, Ankara', description: 'Bolu usulü geleneksel Türk yemekleri. Kuzu incik, pilav ve mevsim tatlıları.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop' },
+  'mock-7': { name: 'Mezzaluna Bilkent', address: 'Bilkent, Çankaya, Ankara', description: 'Ankara\'nın en iyi İtalyan mutfağı. Taze makarna ve ahşap fırında pizza.', logoUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop' },
+  'mock-8': { name: 'Uludağ İskender Ankara', address: 'Bahçelievler, Çankaya, Ankara', description: 'Bursa usulü gerçek İskender kebabı, tereyağı ve domates sosuyla.', logoUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop' },
+}
+
+// ── Mock menü verisi (mock restoranlar için) ──────────────────────────────────
+const MOCK_MENUS: Record<string, MenuItem[]> = {
+  'mock-1': [
+    { id: 'm1-1', name: 'Kavurmalı Pide', description: 'Dana kavurma dolgulu, odun fırınında pişmiş', price: 185, category: 'Pide', imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 0, restaurantId: 'mock-1' },
+    { id: 'm1-2', name: 'Kıymalı Pide', description: 'Kıyma ve soğan harcı, fırında pişmiş', price: 165, category: 'Pide', imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 1, restaurantId: 'mock-1' },
+    { id: 'm1-3', name: 'Kaşarlı Pide', description: 'Bol erimiş kaşar peynirli', price: 155, category: 'Pide', imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 2, restaurantId: 'mock-1' },
+    { id: 'm1-4', name: 'Adana Kebap', description: '200g acılı kıyma kebap, lavaş ve söğüş', price: 195, category: 'Kebap', imageUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 3, restaurantId: 'mock-1' },
+    { id: 'm1-5', name: 'Karışık Izgara', description: 'Adana, şiş, kanat, köfte tabağı', price: 285, category: 'Izgara', imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 4, restaurantId: 'mock-1' },
+    { id: 'm1-6', name: 'Mercimek Çorbası', description: 'Günlük taze mercimek çorbası', price: 55, category: 'Çorba', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 5, restaurantId: 'mock-1' },
+    { id: 'm1-7', name: 'Ayran', description: 'Soğuk ev yapımı ayran 400ml', price: 25, category: 'İçecek', imageUrl: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 6, restaurantId: 'mock-1' },
+  ],
+  'mock-2': [
+    { id: 'm2-1', name: 'Günlük Tabldot', description: '2 çeşit yemek, pilav veya makarna, çorba, ekmek', price: 175, category: 'Tabldot', imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 0, restaurantId: 'mock-2' },
+    { id: 'm2-2', name: 'Kuru Fasulye + Pilav', description: 'Ev yapımı kuru fasulye, pirinç pilav', price: 110, category: 'Yemek', imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 1, restaurantId: 'mock-2' },
+    { id: 'm2-3', name: 'İzmir Köfte', description: 'Patatesli soslu köfte, ekmek', price: 145, category: 'Yemek', imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 2, restaurantId: 'mock-2' },
+    { id: 'm2-4', name: 'Mercimek Çorbası', description: 'Günlük taze mercimek çorbası', price: 55, category: 'Çorba', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 3, restaurantId: 'mock-2' },
+    { id: 'm2-5', name: 'Sütlaç', description: 'Fırın sütlaç, üstü kızarmış', price: 70, category: 'Tatlı', imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 4, restaurantId: 'mock-2' },
+    { id: 'm2-6', name: 'Ayran', description: 'Soğuk ayran', price: 25, category: 'İçecek', imageUrl: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 5, restaurantId: 'mock-2' },
+  ],
+  'mock-3': [
+    { id: 'm3-1', name: 'Dana Ciğer Tava', description: 'Taze dana ciğeri, soğan, biber ile', price: 155, category: 'Ciğer', imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 0, restaurantId: 'mock-3' },
+    { id: 'm3-2', name: 'Ciğer Dürüm', description: 'Lavaşta ciğer, maydanoz, acı biber', price: 99, category: 'Dürüm', imageUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 1, restaurantId: 'mock-3' },
+    { id: 'm3-3', name: 'El Yapımı Köfte', description: '6 adet el yapımı dana köfte, ekmek, söğüş', price: 160, category: 'Köfte', imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 2, restaurantId: 'mock-3' },
+    { id: 'm3-4', name: 'Köfte Dürüm', description: 'İnce lavaşta köfte, sos ve söğüş', price: 110, category: 'Dürüm', imageUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 3, restaurantId: 'mock-3' },
+    { id: 'm3-5', name: 'Piyaz', description: 'Haşlanmış fasulye, soğan, maydanoz salatası', price: 50, category: 'Meze', imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 4, restaurantId: 'mock-3' },
+    { id: 'm3-6', name: 'Ayran', description: 'Soğuk ev yapımı ayran', price: 25, category: 'İçecek', imageUrl: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 5, restaurantId: 'mock-3' },
+  ],
+  'mock-4': [
+    { id: 'm4-1', name: 'Karışık Mangal Tabağı', description: 'Adana, şiş, kanat, sucuk ve pilav', price: 295, category: 'Mangal', imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 0, restaurantId: 'mock-4' },
+    { id: 'm4-2', name: 'Kuzu Şiş', description: 'Marine edilmiş kuzu but şiş, közde pişmiş', price: 245, category: 'Kebap', imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 1, restaurantId: 'mock-4' },
+    { id: 'm4-3', name: 'Tavuk Şiş', description: 'Marine edilmiş tavuk göğsü şiş', price: 185, category: 'Kebap', imageUrl: 'https://images.unsplash.com/photo-1548340748-6d2b7d7da280?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 2, restaurantId: 'mock-4' },
+    { id: 'm4-4', name: 'Sucuk Izgara', description: 'Geleneksel Türk sucuğu, közde pişmiş', price: 155, category: 'Izgara', imageUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 3, restaurantId: 'mock-4' },
+    { id: 'm4-5', name: 'Çoban Salata', description: 'Domates, salatalık, biber, soğan, zeytinyağı', price: 65, category: 'Salata', imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 4, restaurantId: 'mock-4' },
+    { id: 'm4-6', name: 'Ayran', description: 'Soğuk ev yapımı ayran 400ml', price: 25, category: 'İçecek', imageUrl: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 5, restaurantId: 'mock-4' },
+  ],
+  'mock-5': [
+    { id: 'm5-1', name: 'Kavurmalı Pide', description: 'Dana kavurma dolgulu pide', price: 185, category: 'Pide', imageUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 0, restaurantId: 'mock-5' },
+    { id: 'm5-2', name: 'Adana Kebap', description: 'Acılı kıyma kebap, lavaş ile', price: 195, category: 'Kebap', imageUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 1, restaurantId: 'mock-5' },
+    { id: 'm5-3', name: 'Mercimek Çorbası', description: 'Taze günlük çorba', price: 55, category: 'Çorba', imageUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 2, restaurantId: 'mock-5' },
+    { id: 'm5-4', name: 'Ayran', description: 'Soğuk ayran', price: 25, category: 'İçecek', imageUrl: 'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop', isAvailable: true, sortOrder: 3, restaurantId: 'mock-5' },
+  ],
+}
 
 const REVIEWS = [
   { stars: 4.5, text: 'Yemekler inanılmaz lezzetliydi. Teslimat da oldukça hızlıydı, kesinlikle tekrar sipariş vereceğim.', badge: 'Deneyimli Yorumcu', date: '2 hafta önce' },
@@ -40,6 +95,7 @@ const REVIEWS = [
 export default function RestaurantDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
   const user = authService.getUser()
 
   // ── Veri state'leri ──────────────────────────────────────────────────────────
@@ -64,6 +120,21 @@ export default function RestaurantDetailPage() {
     if (!id) return
     setLoading(true)
 
+    // Mock restoran ise MOCK_RESTAURANTS_DATA'dan oku, API'ye gitme
+    if (id.startsWith('mock')) {
+      const mockData = MOCK_RESTAURANTS_DATA[id]
+      const mockRest: Restaurant | null = mockData
+        ? { id, name: mockData.name, address: mockData.address, description: mockData.description, logoUrl: mockData.logoUrl, isOpen: true, locationLat: 0, locationLng: 0 }
+        : null
+      const items = MOCK_MENUS[id] ?? []
+      setRestaurant(mockRest)
+      setMenuItems(items)
+      const firstCat = items.find(i => i.category)?.category ?? ''
+      setActiveCategory(firstCat)
+      setLoading(false)
+      return
+    }
+
     Promise.all([
       api.get<Restaurant[]>('/restaurants'),
       restaurantService.getMenuItems(id),
@@ -75,7 +146,7 @@ export default function RestaurantDetailPage() {
       setActiveCategory(firstCat)
     }).catch(console.error)
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Kategori hesapla ──────────────────────────────────────────────────────────
   const categories = Array.from(new Set(menuItems.map(m => m.category ?? 'Diğer')))
