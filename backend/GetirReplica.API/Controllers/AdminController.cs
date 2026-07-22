@@ -218,13 +218,13 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Tüm Pending siparişleri için matching'i manuel tetikle. (Debug)
+    /// Tüm Pending ve ReadyForPickup siparişleri için matching'i manuel tetikle. (Debug)
     /// </summary>
     [HttpPost("match-pending")]
     public async Task<IActionResult> MatchPendingOrders()
     {
         var pendingOrders = await _db.Orders
-            .Where(o => o.Status == OrderStatus.Pending)
+            .Where(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.ReadyForPickup)
             .ToListAsync();
 
         var results = new List<object>();

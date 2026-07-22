@@ -14,19 +14,24 @@ public class OrderService : IOrderService
     private readonly AppDbContext _db;
     private readonly IHubContext<TrackingHub> _hub;
     private readonly ILogger<OrderService> _logger;
+    private readonly IMatchingService _matchingService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
     {
-        [OrderStatus.Pending]  = [OrderStatus.Assigned, OrderStatus.Cancelled],
-        [OrderStatus.Assigned] = [OrderStatus.Picked],
-        [OrderStatus.Picked]   = [OrderStatus.Delivered],
+        [OrderStatus.Pending]        = [OrderStatus.ReadyForPickup, OrderStatus.Cancelled],
+        [OrderStatus.ReadyForPickup] = [OrderStatus.Assigned, OrderStatus.Cancelled],
+        [OrderStatus.Assigned]       = [OrderStatus.Picked],
+        [OrderStatus.Picked]         = [OrderStatus.Delivered],
     };
 
-    public OrderService(AppDbContext db, IHubContext<TrackingHub> hub, ILogger<OrderService> logger)
+    public OrderService(AppDbContext db, IHubContext<TrackingHub> hub, ILogger<OrderService> logger, IMatchingService matchingService, IServiceScopeFactory scopeFactory)
     {
         _db = db;
         _hub = hub;
         _logger = logger;
+        _matchingService = matchingService;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto dto, Guid customerId)
@@ -65,13 +70,14 @@ public class OrderService : IOrderService
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("Sipariş oluşturuldu: {OrderId}", order.Id);
-        return MapToDto(order, dto.Items);
+        return MapToDto(order, dto.Items, restaurant.Name);
     }
 
     public async Task<OrderResponseDto> GetOrderAsync(Guid orderId, Guid requesterId, string requesterRole)
     {
         var order = await _db.Orders
             .Include(o => o.Courier)
+            .Include(o => o.Restaurant)
             .FirstOrDefaultAsync(o => o.Id == orderId)
             ?? throw new KeyNotFoundException($"Sipariş bulunamadı: {orderId}");
 
@@ -83,7 +89,7 @@ public class OrderService : IOrderService
 
     public async Task<PagedResult<OrderResponseDto>> GetOrdersAsync(OrderFilterDto filter, Guid requesterId, string requesterRole)
     {
-        var query = _db.Orders.AsQueryable();
+        var query = _db.Orders.AsQueryable().Include(o => o.Restaurant).AsQueryable();
 
         if (requesterRole == "restaurant")
         {
@@ -118,6 +124,7 @@ public class OrderService : IOrderService
     {
         var order = await _db.Orders
             .Include(o => o.Courier)
+            .Include(o => o.Restaurant)
             .FirstOrDefaultAsync(o => o.Id == orderId)
             ?? throw new KeyNotFoundException($"Sipariş bulunamadı: {orderId}");
 
@@ -163,6 +170,27 @@ public class OrderService : IOrderService
         });
 
         _logger.LogInformation("Sipariş {OrderId} → {Status}", orderId, newStatus);
+
+        // Restoran hazır işaretlediğinde kurye eşleştirmesini başlat
+        if (newStatus == OrderStatus.ReadyForPickup)
+        {
+            _ = Task.Run(async () =>
+            {
+                // Yeni scope aç: Task.Run başka bir thread'de çalışır,
+                // mevcut request scope'u (ve DbContext'i) dispose edilmiş olabilir.
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var matching = scope.ServiceProvider.GetRequiredService<IMatchingService>();
+                try
+                {
+                    await matching.FindAndAssignCourierAsync(orderId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Eşleştirme hatası: {OrderId}", orderId);
+                }
+            });
+        }
+
         return MapToDto(order);
     }
 
@@ -170,6 +198,7 @@ public class OrderService : IOrderService
     {
         var order = await _db.Orders
             .Include(o => o.Courier)
+            .Include(o => o.Restaurant)
             .FirstOrDefaultAsync(o => o.Id == orderId)
             ?? throw new KeyNotFoundException($"Sipariş bulunamadı: {orderId}");
 
@@ -198,10 +227,53 @@ public class OrderService : IOrderService
         return MapToDto(order);
     }
 
+    public async Task<OrderResponseDto> CancelOrderByRestaurantAsync(Guid orderId, Guid restaurantUserId)
+    {
+        var order = await _db.Orders
+            .Include(o => o.Courier)
+            .Include(o => o.Restaurant)
+            .FirstOrDefaultAsync(o => o.Id == orderId)
+            ?? throw new KeyNotFoundException($"Sipariş bulunamadı: {orderId}");
+
+        // Restoranın kendi siparişi mi kontrol et
+        var restaurant = await _db.Restaurants.FirstOrDefaultAsync(r => r.UserId == restaurantUserId)
+            ?? throw new UnauthorizedAccessException("Restoran kaydı bulunamadı.");
+
+        if (order.RestaurantId != restaurant.Id)
+            throw new UnauthorizedAccessException("Bu siparişi iptal etme yetkiniz yok.");
+
+        // Restoran; Pending ve Assigned (kurye yola çıkmadıysa) durumunda iptal edebilir
+        if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Assigned)
+            throw new InvalidOperationException(
+                "Sipariş yalnızca hazırlanıyor veya kurye beklenirken iptal edilebilir. Kurye yola çıktıktan sonra iptal yapılamaz.");
+
+        var now = DateTime.UtcNow;
+        order.Status = OrderStatus.Cancelled;
+        order.UpdatedAt = now;
+
+        // Kurye varsa serbest bırak
+        if (order.Courier != null)
+            order.Courier.Status = CourierStatus.Available;
+
+        await _db.SaveChangesAsync();
+
+        // Müşteri ve kurye takip ekranını bilgilendir
+        await _hub.Clients.Group($"order:{orderId}").SendAsync("OrderStatusChanged", new
+        {
+            orderId = order.Id,
+            status  = OrderStatus.Cancelled.ToString(),
+            timestamp = now
+        });
+
+        _logger.LogInformation("Sipariş {OrderId} restoran tarafından iptal edildi.", orderId);
+        return MapToDto(order);
+    }
+
     public async Task<OrderResponseDto?> GetActiveOrderAsync(Guid customerId)
     {
         var order = await _db.Orders
             .Include(o => o.Courier)
+            .Include(o => o.Restaurant)
             .Where(o => o.CustomerId == customerId &&
                         (o.Status == OrderStatus.Pending ||
                          o.Status == OrderStatus.Assigned ||
@@ -216,7 +288,9 @@ public class OrderService : IOrderService
     {
         var query = _db.Orders
             .AsQueryable()
-            .Where(o => o.CustomerId == customerId);
+            .Include(o => o.Restaurant)
+            .Where(o => o.CustomerId == customerId)
+            .AsQueryable();
 
         // Virgülle ayrılmış çoklu durum desteği (örn. "Pending,Assigned,Picked")
         if (!string.IsNullOrEmpty(filter.Status))
@@ -263,7 +337,7 @@ public class OrderService : IOrderService
         );
     }
 
-    private static OrderResponseDto MapToDto(Order order, List<OrderItemDto>? items = null)
+    private static OrderResponseDto MapToDto(Order order, List<OrderItemDto>? items = null, string? restaurantNameOverride = null)
     {
         var parsedItems = items ?? TryParseItems(order.ItemsJson);
         var deliveryLoc = new LocationDto(order.DeliveryLocationLat, order.DeliveryLocationLng);
@@ -273,6 +347,7 @@ public class OrderService : IOrderService
             Status: order.Status.ToString(),
             CustomerId: order.CustomerId,
             RestaurantId: order.RestaurantId,
+            RestaurantName: restaurantNameOverride ?? order.Restaurant?.Name ?? string.Empty,
             CourierId: order.CourierId,
             DeliveryAddress: order.DeliveryAddress,
             DeliveryLocation: deliveryLoc,

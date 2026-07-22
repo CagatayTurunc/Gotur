@@ -158,6 +158,17 @@ export default function RestaurantPage() {
     try { await orderService.updateStatus(id, 'ReadyForPickup'); fetchOrders() } catch {}
   }
 
+  const handleCancelOrder = async (id: string) => {
+    if (!confirm('Bu siparişi iptal etmek istediğinize emin misiniz?')) return
+    try {
+      await orderService.restaurantCancelOrder(id)
+      fetchOrders()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      alert(msg ?? 'Sipariş iptal edilemedi.')
+    }
+  }
+
   const navItems: { key: NavTab; icon: string; label: string }[] = [
     { key: 'dashboard', icon: 'dashboard',      label: 'Dashboard' },
     { key: 'orders',    icon: 'receipt_long',    label: 'Siparişler' },
@@ -343,23 +354,32 @@ export default function RestaurantPage() {
                               </div>
                               <div className="flex justify-between items-center">
                                 <span className="text-xs font-semibold" style={{ color: '#6f0001' }}>₺{total.toFixed(2)}</span>
-                                {o.status === 'Pending' && (
-                                  <button onClick={() => handleMarkReady(o.id)}
-                                    className="text-sm font-bold px-4 py-1.5 rounded-full text-white hover:opacity-80"
-                                    style={{ backgroundColor: '#6f0001' }}>
-                                    Hazır İşaretle
-                                  </button>
-                                )}
-                                {o.status === 'Assigned' && (
-                                  <span className="text-xs flex items-center gap-1" style={{ color: '#5b403c' }}>
-                                    <span className="material-symbols-outlined text-[14px]">moped</span>Kurye bekleniyor
-                                  </span>
-                                )}
-                                {o.status === 'Picked' && (
-                                  <span className="text-xs flex items-center gap-1" style={{ color: '#5b403c' }}>
-                                    <span className="material-symbols-outlined text-[14px]">local_shipping</span>Yolda
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {o.status === 'Pending' && (
+                                    <button onClick={() => handleMarkReady(o.id)}
+                                      className="text-sm font-bold px-4 py-1.5 rounded-full text-white hover:opacity-80"
+                                      style={{ backgroundColor: '#6f0001' }}>
+                                      Hazır İşaretle
+                                    </button>
+                                  )}
+                                  {o.status === 'Assigned' && (
+                                    <span className="text-xs flex items-center gap-1" style={{ color: '#5b403c' }}>
+                                      <span className="material-symbols-outlined text-[14px]">moped</span>Kurye bekleniyor
+                                    </span>
+                                  )}
+                                  {o.status === 'Picked' && (
+                                    <span className="text-xs flex items-center gap-1" style={{ color: '#5b403c' }}>
+                                      <span className="material-symbols-outlined text-[14px]">local_shipping</span>Yolda
+                                    </span>
+                                  )}
+                                  {(o.status === 'Pending' || o.status === 'Assigned') && (
+                                    <button onClick={() => handleCancelOrder(o.id)}
+                                      className="text-xs font-bold px-3 py-1.5 rounded-full border hover:opacity-80"
+                                      style={{ borderColor: '#c5221f', color: '#c5221f', backgroundColor: '#fce8e6' }}>
+                                      İptal Et
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </li>
                           )
@@ -482,13 +502,22 @@ export default function RestaurantPage() {
                                 {new Date(o.createdAt).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                               </td>
                               <td className="px-4 py-3">
-                                {o.status === 'Pending' && (
-                                  <button onClick={() => handleMarkReady(o.id)}
-                                    className="text-xs font-bold px-3 py-1.5 rounded-full text-white hover:opacity-80"
-                                    style={{ backgroundColor: '#6f0001' }}>
-                                    Hazır
-                                  </button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {o.status === 'Pending' && (
+                                    <button onClick={() => handleMarkReady(o.id)}
+                                      className="text-xs font-bold px-3 py-1.5 rounded-full text-white hover:opacity-80"
+                                      style={{ backgroundColor: '#6f0001' }}>
+                                      Hazır
+                                    </button>
+                                  )}
+                                  {(o.status === 'Pending' || o.status === 'Assigned') && (
+                                    <button onClick={() => handleCancelOrder(o.id)}
+                                      className="text-xs font-bold px-3 py-1.5 rounded-full border hover:opacity-80"
+                                      style={{ borderColor: '#c5221f', color: '#c5221f', backgroundColor: '#fce8e6' }}>
+                                      İptal
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           )

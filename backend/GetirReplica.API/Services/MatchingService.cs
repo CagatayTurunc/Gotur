@@ -29,11 +29,12 @@ public class MatchingService : IMatchingService
     {
         var order = await _db.Orders
             .Include(o => o.Restaurant)
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.Status == OrderStatus.Pending);
+            .FirstOrDefaultAsync(o => o.Id == orderId &&
+                (o.Status == OrderStatus.ReadyForPickup || o.Status == OrderStatus.Pending));
 
         if (order == null)
         {
-            _logger.LogWarning("Eşleştirme: Sipariş {OrderId} bulunamadı veya Pending değil.", orderId);
+            _logger.LogWarning("Eşleştirme: Sipariş {OrderId} bulunamadı veya uygun durumda değil.", orderId);
             return false;
         }
 
@@ -46,6 +47,7 @@ public class MatchingService : IMatchingService
             .Select(o => o.CourierId)
             .ToListAsync();
 
+        // Önce konumu güncel olan kuryeleri dene; bulunamazsa konumu olan tüm Available kuryelere genişlet
         var availableCouriers = await _db.Couriers
             .Where(c =>
                 c.CurrentLocationLat != null &&
@@ -53,6 +55,20 @@ public class MatchingService : IMatchingService
                 (c.Status == CourierStatus.Available ||
                  (c.Status == CourierStatus.Busy && !busyCourierIds.Contains(c.Id))))
             .ToListAsync();
+
+        // Fallback: stale threshold dışında kalan ama konumu olan Available kuryeler
+        if (availableCouriers.Count == 0)
+        {
+            _logger.LogWarning(
+                "Eşleştirme: Güncel konumlu kurye yok, tüm Available kuryelere genişletiliyor. OrderId={OrderId}",
+                orderId);
+            availableCouriers = await _db.Couriers
+                .Where(c =>
+                    c.CurrentLocationLat != null &&
+                    (c.Status == CourierStatus.Available ||
+                     (c.Status == CourierStatus.Busy && !busyCourierIds.Contains(c.Id))))
+                .ToListAsync();
+        }
 
         var restaurantLat = order.Restaurant.LocationLat;
         var restaurantLng = order.Restaurant.LocationLng;

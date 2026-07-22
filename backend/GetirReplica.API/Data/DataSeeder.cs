@@ -75,7 +75,15 @@ public static class DataSeeder
             {
                 var ec = db.Couriers.First(c => c.UserId == cu.Id);
                 ec.LastLocationAt = DateTime.UtcNow;
-                if (ec.Status == CourierStatus.Offline) ec.Status = CourierStatus.Available;
+                // Offline veya Busy (aktif siparişi yoksa) olan kuryeleri Available yap
+                if (ec.Status == CourierStatus.Offline || ec.Status == CourierStatus.Busy)
+                {
+                    var hasActiveOrder = db.Orders.Any(o =>
+                        o.CourierId == ec.Id &&
+                        (o.Status == OrderStatus.Assigned || o.Status == OrderStatus.Picked));
+                    if (!hasActiveOrder)
+                        ec.Status = CourierStatus.Available;
+                }
             }
         }
         await db.SaveChangesAsync();

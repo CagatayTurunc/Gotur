@@ -41,11 +41,14 @@ function Icon({ name, filled = false, className = '' }: { name: string; filled?:
   )
 }
 
-// Restoran adı gösterimi için basit yardımcı — restaurantId kullanılıyor, backend'den isim çekilebilir
-function RestaurantInitials({ id: _id }: { id: string }) {
+// Restoran avatarı ve adı
+function RestaurantBadge({ name }: { name: string }) {
+  const initials = name
+    ? name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+    : '?'
   return (
     <div className="w-14 h-14 rounded-xl bg-[#9a0002]/10 border border-[#9a0002]/20 flex items-center justify-center flex-shrink-0">
-      <Icon name="storefront" className="text-[28px] text-[#9a0002]" />
+      <span className="text-[#9a0002] font-black text-base leading-none">{initials}</span>
     </div>
   )
 }
@@ -212,12 +215,16 @@ export default function OrdersPage() {
                   {/* Kart Başlığı */}
                   <div className="p-5 pb-4 border-b border-[#fff0ee] flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <RestaurantInitials id={order.restaurantId} />
+                      <RestaurantBadge name={order.restaurantName} />
                       <div>
                         <h3 className="font-bold text-[#271815] text-base leading-tight">
-                          Sipariş #{order.id.slice(0, 8).toUpperCase()}
+                          {order.restaurantName || `Sipariş #${order.id.slice(0, 8).toUpperCase()}`}
                         </h3>
-                        <p className="text-xs text-[#8f706b] flex items-center gap-1 mt-1">
+                        <p className="text-xs text-[#8f706b] flex items-center gap-1 mt-0.5">
+                          <Icon name="tag" className="text-[13px]" />
+                          #{order.id.slice(0, 8).toUpperCase()}
+                        </p>
+                        <p className="text-xs text-[#8f706b] flex items-center gap-1 mt-0.5">
                           <Icon name="calendar_today" className="text-[13px]" />
                           {formatDate(order.createdAt)}
                         </p>

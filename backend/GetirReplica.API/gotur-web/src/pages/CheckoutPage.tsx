@@ -17,6 +17,8 @@ type PaymentMethod = 'credit_card' | 'wallet' | 'cash'
 interface LocationState {
   items?: OrderItem[]
   restaurantId?: string
+  restaurantLat?: number
+  restaurantLng?: number
 }
 
 // shorthand style helpers
@@ -25,6 +27,17 @@ const sStyle = { color: 'var(--text-secondary)' }
 const aStyle = { color: 'var(--accent)' }
 const cardStyle = { backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }
 const inputStyle = { backgroundColor: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }
+
+// ── Haversine mesafe (km) ─────────────────────────────────────────────────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+const DELIVERY_RADIUS_KM = 10
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -41,6 +54,8 @@ export default function CheckoutPage() {
 
   // restaurantId: önce state'ten, yoksa API'den çek
   const [restaurantId, setRestaurantId] = useState<string>(state?.restaurantId ?? '')
+  const restaurantLat = state?.restaurantLat
+  const restaurantLng = state?.restaurantLng
 
   useEffect(() => {
     // State'ten geçerli bir UUID gelmediyse API'den ilk restoranı al
@@ -85,6 +100,19 @@ export default function CheckoutPage() {
     if (!user) { navigate('/login'); return }
     if (!selectedAddress) { setError('Lütfen önce teslimat adresinizi seçin.'); openPicker(); return }
     if (!restaurantId) { setError('Restoran bilgisi yüklenemedi, lütfen sayfayı yenileyin.'); return }
+
+    // Restoran teslimat yarıçapı kontrolü
+    if (restaurantLat !== undefined && restaurantLng !== undefined &&
+        (restaurantLat !== 0 || restaurantLng !== 0)) {
+      const distKm = haversineKm(
+        selectedAddress.lat, selectedAddress.lng,
+        restaurantLat, restaurantLng
+      )
+      if (distKm > DELIVERY_RADIUS_KM) {
+        setError(`Bu restoran seçili adresinizden çok uzakta (${distKm.toFixed(1)} km). Teslimat alanı ${DELIVERY_RADIUS_KM} km ile sınırlıdır.`)
+        return
+      }
+    }
     if (paymentMethod === 'credit_card' && !selectedSaved) {
       const errs: typeof cardErrors = {}
       const rawNum = cardNumber.replace(/\D/g, '')

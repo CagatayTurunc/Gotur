@@ -5,6 +5,7 @@ public record OrderResponseDto(
     string Status,
     Guid CustomerId,
     Guid RestaurantId,
+    string RestaurantName,
     Guid? CourierId,
     string DeliveryAddress,
     LocationDto DeliveryLocation,

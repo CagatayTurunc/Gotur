@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { authService } from './services/authService'
 import { ThemeProvider } from './context/ThemeContext'
 import { AddressProvider } from './context/AddressContext'
@@ -48,11 +49,12 @@ function LoginRoute() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AddressProvider>
-        <BrowserRouter>
-          <AddressPickerModal />
-          <Routes>
+    <GoogleOAuthProvider clientId="914551771224-paoe96g7gqeca4gqsa912fuofqfm5p0b.apps.googleusercontent.com">
+      <ThemeProvider>
+        <AddressProvider>
+          <BrowserRouter>
+            <AddressPickerModal />
+            <Routes>
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/" element={<HomeRedirect />} />
         <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
@@ -83,8 +85,9 @@ export default function App() {
         <Route path="/partner/apply" element={<PartnerApplyPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        </BrowserRouter>
-      </AddressProvider>
-    </ThemeProvider>
+          </BrowserRouter>
+        </AddressProvider>
+      </ThemeProvider>
+    </GoogleOAuthProvider>
   )
 }

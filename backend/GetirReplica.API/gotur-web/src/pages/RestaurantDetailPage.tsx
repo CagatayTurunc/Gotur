@@ -5,6 +5,7 @@ import { restaurantService, type MenuItem } from '../services/restaurantService'
 import ThemeToggle from '../components/ThemeToggle'
 import api from '../services/api'
 import type { Restaurant } from '../types'
+import { useAddress } from '../context/AddressContext'
 
 interface CartItem { id: string; name: string; price: number; qty: number; imageUrl?: string }
 
@@ -13,6 +14,18 @@ const accentStyle  = { color: 'var(--accent)' }
 const primaryStyle = { color: 'var(--text-primary)' }
 const secondaryStyle = { color: 'var(--text-secondary)' }
 const cardStyle = { backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }
+
+// ── Haversine mesafe (km) ──────────────────────────────────────────────────────
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const DELIVERY_RADIUS_KM = 10
 
 // ── Yıldız satırı ──────────────────────────────────────────────────────────────
 function StarRow({ rating }: { rating: number }) {
@@ -32,15 +45,15 @@ function StarRow({ rating }: { rating: number }) {
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop'
 
 // ── Mock restoran tanımları (state'e gerek kalmadan) ─────────────────────────
-const MOCK_RESTAURANTS_DATA: Record<string, { name: string; address: string; description: string; logoUrl: string }> = {
-  'mock-1': { name: 'Çağdaş Pide Kebap Salonu', address: 'Atakent Mah. Şht. Celal İşen Sk. No:2, Etimesgut', description: 'Etimesgut\'un vazgeçilmez pide ve kebap durağı. Odun ateşinde kavurmalı pide.', logoUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop' },
-  'mock-2': { name: 'Annem Elvan Sofrası', address: 'Elvan Mah. Ahi Elvan Cd. No:2/C, Etimesgut', description: 'Ev sıcaklığında günlük yemekler. Taze hazırlanan tabldot ve ev yemekleri.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop' },
-  'mock-3': { name: 'Meşhur Ciğerci İdris Usta', address: 'Elvan Mah. Ahi Elvan Cd. No:34/B, Etimesgut', description: 'Etimesgut\'un efsane ciğercisi. Taze dana ciğeri ve el yapımı köfte.', logoUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop' },
-  'mock-4': { name: 'Hocam Piknik', address: 'Piyade Mah. İstasyon Cad. No:215, Etimesgut', description: 'Etimesgut\'un gözde mangal restoranı. Közde taze etler, bahçede yemek keyfi.', logoUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop' },
-  'mock-5': { name: 'Çağdaş Pide Kebap - Atakent', address: 'Atakent, 1478. Cad. No:1, Etimesgut', description: 'Geleneksel Türk mutfağından seçme kebap ve pide çeşitleri.', logoUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=400&fit=crop' },
-  'mock-6': { name: 'Bolu Akın Lokantası', address: 'Kızılay, Çankaya, Ankara', description: 'Bolu usulü geleneksel Türk yemekleri. Kuzu incik, pilav ve mevsim tatlıları.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop' },
-  'mock-7': { name: 'Mezzaluna Bilkent', address: 'Bilkent, Çankaya, Ankara', description: 'Ankara\'nın en iyi İtalyan mutfağı. Taze makarna ve ahşap fırında pizza.', logoUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop' },
-  'mock-8': { name: 'Uludağ İskender Ankara', address: 'Bahçelievler, Çankaya, Ankara', description: 'Bursa usulü gerçek İskender kebabı, tereyağı ve domates sosuyla.', logoUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop' },
+const MOCK_RESTAURANTS_DATA: Record<string, { name: string; address: string; description: string; logoUrl: string; locationLat: number; locationLng: number }> = {
+  'mock-1': { name: 'Çağdaş Pide Kebap Salonu', address: 'Atakent Mah. Şht. Celal İşen Sk. No:2, Etimesgut', description: 'Etimesgut\'un vazgeçilmez pide ve kebap durağı. Odun ateşinde kavurmalı pide.', logoUrl: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=400&fit=crop', locationLat: 39.9478, locationLng: 32.6612 },
+  'mock-2': { name: 'Annem Elvan Sofrası', address: 'Elvan Mah. Ahi Elvan Cd. No:2/C, Etimesgut', description: 'Ev sıcaklığında günlük yemekler. Taze hazırlanan tabldot ve ev yemekleri.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop', locationLat: 39.9410, locationLng: 32.6720 },
+  'mock-3': { name: 'Meşhur Ciğerci İdris Usta', address: 'Elvan Mah. Ahi Elvan Cd. No:34/B, Etimesgut', description: 'Etimesgut\'un efsane ciğercisi. Taze dana ciğeri ve el yapımı köfte.', logoUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop', locationLat: 39.9418, locationLng: 32.6708 },
+  'mock-4': { name: 'Hocam Piknik', address: 'Piyade Mah. İstasyon Cad. No:215, Etimesgut', description: 'Etimesgut\'un gözde mangal restoranı. Közde taze etler, bahçede yemek keyfi.', logoUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop', locationLat: 39.9502, locationLng: 32.6648 },
+  'mock-5': { name: 'Çağdaş Pide Kebap - Atakent', address: 'Atakent, 1478. Cad. No:1, Etimesgut', description: 'Geleneksel Türk mutfağından seçme kebap ve pide çeşitleri.', logoUrl: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=400&fit=crop', locationLat: 39.9465, locationLng: 32.6635 },
+  'mock-6': { name: 'Bolu Akın Lokantası', address: 'Kızılay, Çankaya, Ankara', description: 'Bolu usulü geleneksel Türk yemekleri. Kuzu incik, pilav ve mevsim tatlıları.', logoUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=400&fit=crop', locationLat: 39.9208, locationLng: 32.8541 },
+  'mock-7': { name: 'Mezzaluna Bilkent', address: 'Bilkent, Çankaya, Ankara', description: 'Ankara\'nın en iyi İtalyan mutfağı. Taze makarna ve ahşap fırında pizza.', logoUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=400&fit=crop', locationLat: 39.8730, locationLng: 32.7490 },
+  'mock-8': { name: 'Uludağ İskender Ankara', address: 'Bahçelievler, Çankaya, Ankara', description: 'Bursa usulü gerçek İskender kebabı, tereyağı ve domates sosuyla.', logoUrl: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop', locationLat: 39.9300, locationLng: 32.8200 },
 }
 
 // ── Mock menü verisi (mock restoranlar için) ──────────────────────────────────
@@ -97,6 +110,7 @@ export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>()
   const location = useLocation()
   const user = authService.getUser()
+  const { selectedAddress, openPicker } = useAddress()
 
   // ── Veri state'leri ──────────────────────────────────────────────────────────
   const [restaurant, setRestaurant]     = useState<Restaurant | null>(null)
@@ -124,7 +138,7 @@ export default function RestaurantDetailPage() {
     if (id.startsWith('mock')) {
       const mockData = MOCK_RESTAURANTS_DATA[id]
       const mockRest: Restaurant | null = mockData
-        ? { id, name: mockData.name, address: mockData.address, description: mockData.description, logoUrl: mockData.logoUrl, isOpen: true, locationLat: 0, locationLng: 0 }
+        ? { id, name: mockData.name, address: mockData.address, description: mockData.description, logoUrl: mockData.logoUrl, isOpen: true, locationLat: mockData.locationLat, locationLng: mockData.locationLng }
         : null
       const items = MOCK_MENUS[id] ?? []
       setRestaurant(mockRest)
@@ -189,10 +203,28 @@ export default function RestaurantDetailPage() {
       navigate('/login', { state: { returnTo: `/restaurants/${id}` } })
       return
     }
+    // Adres seçilmemişse picker'ı aç
+    if (!selectedAddress) {
+      openPicker()
+      return
+    }
+    // Restoran teslimat yarıçapı dışında ise engelle
+    if (restaurant && (restaurant.locationLat !== 0 || restaurant.locationLng !== 0)) {
+      const distKm = haversineKm(
+        selectedAddress.lat, selectedAddress.lng,
+        restaurant.locationLat, restaurant.locationLng
+      )
+      if (distKm > DELIVERY_RADIUS_KM) {
+        alert(`Bu restoran seçili adresinizden çok uzakta (${distKm.toFixed(1)} km). Teslimat alanı ${DELIVERY_RADIUS_KM} km ile sınırlıdır.`)
+        return
+      }
+    }
     navigate('/checkout', {
       state: {
         items: cart.map(i => ({ name: i.name, quantity: i.qty, price: i.price })),
         restaurantId: id,
+        restaurantLat: restaurant?.locationLat,
+        restaurantLng: restaurant?.locationLng,
       }
     })
   }

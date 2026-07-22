@@ -16,14 +16,10 @@ namespace GetirReplica.API.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
-    private readonly IMatchingService _matchingService;
-    private readonly IServiceScopeFactory _scopeFactory;
 
-    public OrdersController(IOrderService orderService, IMatchingService matchingService, IServiceScopeFactory scopeFactory)
+    public OrdersController(IOrderService orderService)
     {
         _orderService = orderService;
-        _matchingService = matchingService;
-        _scopeFactory = scopeFactory;
     }
 
     /// <summary>
@@ -38,32 +34,6 @@ public class OrdersController : ControllerBase
     {
         var customerId = GetCurrentUserId();
         var order = await _orderService.CreateOrderAsync(dto, customerId);
-
-        // Eşleştirmeyi 3sn içinde tamamlamaya çalış, yoksa arka planda devam et
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        try
-        {
-            await _matchingService.FindAndAssignCourierAsync(order.Id);
-        }
-        catch (OperationCanceledException)
-        {
-            // Timeout — arka planda devam et
-            var orderId = order.Id;
-            _ = Task.Run(async () =>
-            {
-                await using var scope = _scopeFactory.CreateAsyncScope();
-                var svc = scope.ServiceProvider.GetRequiredService<IMatchingService>();
-                await svc.FindAndAssignCourierAsync(orderId);
-            });
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[Matching] {order.Id}: {ex.Message}");
-        }
-        finally
-        {
-            cts.Dispose();
-        }
 
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
     }
@@ -136,6 +106,21 @@ public class OrdersController : ControllerBase
     {
         var customerId = GetCurrentUserId();
         var order = await _orderService.CancelOrderAsync(id, customerId);
+        return Ok(order);
+    }
+
+    /// <summary>
+    /// Restoran kendi siparişini iptal eder (Pending veya Assigned durumunda).
+    /// </summary>
+    [HttpPost("{id:guid}/restaurant-cancel")]
+    [Authorize(Roles = "restaurant")]
+    [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RestaurantCancelOrder(Guid id)
+    {
+        var restaurantUserId = GetCurrentUserId();
+        var order = await _orderService.CancelOrderByRestaurantAsync(id, restaurantUserId);
         return Ok(order);
     }
 

@@ -116,7 +116,7 @@ public class LocationService : ILocationService
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var pendingOrderIds = await db.Orders
-                    .Where(o => o.Status == OrderStatus.Pending && o.RetryCount < 3)
+                    .Where(o => (o.Status == OrderStatus.Pending || o.Status == OrderStatus.ReadyForPickup) && o.RetryCount < 3)
                     .Select(o => o.Id)
                     .ToListAsync();
 

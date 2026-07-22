@@ -42,6 +42,11 @@ export const orderService = {
     return res.data
   },
 
+  async restaurantCancelOrder(id: string): Promise<Order> {
+    const res = await api.post<Order>(`/orders/${id}/restaurant-cancel`)
+    return res.data
+  },
+
   async getActiveOrder(): Promise<Order | null> {
     try {
       const res = await api.get<Order>('/orders/active')

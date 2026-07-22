@@ -109,6 +109,10 @@ docker-compose.local.yml
 # ─── Database / SQL ─────────────────────────────────────────
 fix_orders.sql
 cleanup_etimesgut.sql
+query.sql
+
+# ─── Local test / debug scripts ─────────────────────────────
+*.ps1
 
 # ─── Misc ────────────────────────────────────────────────────
 Thumbs.db

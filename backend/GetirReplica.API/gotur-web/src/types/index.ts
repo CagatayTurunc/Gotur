@@ -46,6 +46,7 @@ export interface Order {
   status: string
   customerId: string
   restaurantId: string
+  restaurantName: string
   courierId: string | null
   deliveryAddress: string
   deliveryLocation: LocationDto

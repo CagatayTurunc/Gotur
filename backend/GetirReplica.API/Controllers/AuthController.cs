@@ -2,6 +2,7 @@ using System.Security.Claims;
 using GetirReplica.API.Models.DTOs.Auth;
 using GetirReplica.API.Models.Entities;
 using GetirReplica.API.Services;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -19,15 +20,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<AppUser> _userManager;
     private readonly SignInManager<AppUser> _signInManager;
     private readonly ITokenService _tokenService;
+    private readonly IConfiguration _config;
 
     public AuthController(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IConfiguration config)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
+        _config = config;
     }
 
     /// <summary>
@@ -174,5 +178,65 @@ public class AuthController : ControllerBase
         await _userManager.UpdateAsync(user);
 
         return Ok(new { message = "Hesabınız başarıyla silindi." });
+    }
+
+    /// <summary>
+    /// Google ID Token ile giriş / kayıt. Token frontend'deki Google OAuth popup'ından alınır.
+    /// Kullanıcı yoksa otomatik olarak 'customer' rolüyle kaydedilir.
+    /// </summary>
+    /// <response code="200">JWT token.</response>
+    /// <response code="400">Geçersiz Google token.</response>
+    [HttpPost("google")]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GoogleLogin([FromBody] SocialLoginDto dto)
+    {
+        var clientId = _config["Google:ClientId"];
+        if (string.IsNullOrEmpty(clientId))
+            return BadRequest(new { message = "Google OAuth yapılandırılmamış." });
+
+        GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { clientId }
+            };
+            payload = await GoogleJsonWebSignature.ValidateAsync(dto.IdToken, settings);
+        }
+        catch
+        {
+            return BadRequest(new { message = "Geçersiz Google token." });
+        }
+
+        // Mevcut kullanıcıyı bul ya da oluştur
+        var user = await _userManager.FindByEmailAsync(payload.Email);
+        if (user is null)
+        {
+            user = new AppUser
+            {
+                Email = payload.Email,
+                UserName = payload.Email,
+                FullName = payload.Name ?? payload.Email,
+                Role = "customer",
+                EmailConfirmed = true
+            };
+            var result = await _userManager.CreateAsync(user);
+            if (!result.Succeeded)
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+
+            await _userManager.AddToRoleAsync(user, "customer");
+        }
+        else if (user.IsDeleted)
+        {
+            return BadRequest(new { message = "Bu hesap silinmiş." });
+        }
+
+        var token = _tokenService.GenerateToken(user, user.Role);
+        return Ok(new AuthResponseDto(
+            Token: token,
+            ExpiresAt: DateTime.UtcNow.AddMinutes(480),
+            User: new UserInfoDto(user.Id, user.Email!, user.FullName, user.Role)
+        ));
     }
 }

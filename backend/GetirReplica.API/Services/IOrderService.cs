@@ -11,6 +11,7 @@ public interface IOrderService
     Task<PagedResult<OrderResponseDto>> GetCustomerOrdersAsync(Guid customerId, OrderFilterDto filter);
     Task<OrderResponseDto> UpdateStatusAsync(Guid orderId, OrderStatus newStatus, Guid requesterId, string requesterRole);
     Task<OrderResponseDto> CancelOrderAsync(Guid orderId, Guid customerId);
+    Task<OrderResponseDto> CancelOrderByRestaurantAsync(Guid orderId, Guid restaurantUserId);
     Task<LocationDto?> GetOrderTrackingAsync(Guid orderId);
     Task<OrderResponseDto?> GetActiveOrderAsync(Guid customerId);
 }
