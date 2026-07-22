@@ -49,7 +49,7 @@ function LoginRoute() {
 
 export default function App() {
   return (
-    <GoogleOAuthProvider clientId="914551771224-paoe96g7gqeca4gqsa912fuofqfm5p0b.apps.googleusercontent.com">
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
       <ThemeProvider>
         <AddressProvider>
           <BrowserRouter>
