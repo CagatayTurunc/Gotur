@@ -124,6 +124,128 @@ getir-replica/
 
 ---
 
+## 🗃️ Veritabanı ER Diyagramı
+
+```mermaid
+erDiagram
+    AppUser {
+        uuid Id PK
+        string UserName
+        string Email
+        string FullName
+        string Role
+        datetime CreatedAt
+        bool IsDeleted
+        datetime DeletedAt
+    }
+
+    Courier {
+        uuid Id PK
+        uuid UserId FK
+        string Status
+        double CurrentLocationLat
+        double CurrentLocationLng
+        datetime LastLocationAt
+        datetime CreatedAt
+    }
+
+    Restaurant {
+        uuid Id PK
+        uuid UserId FK
+        string Name
+        string Address
+        string Description
+        string LogoUrl
+        bool IsOpen
+        double LocationLat
+        double LocationLng
+        datetime CreatedAt
+    }
+
+    MenuItem {
+        uuid Id PK
+        uuid RestaurantId FK
+        string Name
+        string Description
+        decimal Price
+        string Category
+        string ImageUrl
+        bool IsAvailable
+        int SortOrder
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    Order {
+        uuid Id PK
+        uuid CustomerId FK
+        uuid RestaurantId FK
+        uuid CourierId FK
+        string Status
+        string DeliveryAddress
+        double DeliveryLocationLat
+        double DeliveryLocationLng
+        jsonb ItemsJson
+        int RetryCount
+        datetime CreatedAt
+        datetime AssignedAt
+        datetime PickedAt
+        datetime DeliveredAt
+        datetime UpdatedAt
+    }
+
+    CourierLocationHistory {
+        long Id PK
+        uuid CourierId FK
+        uuid OrderId FK
+        double LocationLat
+        double LocationLng
+        datetime RecordedAt
+    }
+
+    RestaurantApplication {
+        uuid Id PK
+        uuid UserId FK
+        string RestaurantName
+        string OwnerName
+        string Email
+        string Phone
+        string Address
+        string City
+        string Category
+        string Description
+        string TaxNumber
+        string PasswordHash
+        string Status
+        string AdminNote
+        datetime CreatedAt
+        datetime ReviewedAt
+        uuid ReviewedByAdminId
+    }
+
+    AppUser ||--o| Courier : "1:1 (courier role)"
+    AppUser ||--o| Restaurant : "1:1 (restaurant role)"
+    AppUser ||--o{ RestaurantApplication : "0..1:N (optional)"
+    AppUser ||--o{ Order : "1:N (as customer)"
+
+    Restaurant ||--o{ MenuItem : "1:N"
+    Restaurant ||--o{ Order : "1:N"
+
+    Courier ||--o{ Order : "1:N (assigned orders)"
+    Courier ||--o{ CourierLocationHistory : "1:N"
+
+    Order ||--o{ CourierLocationHistory : "1:N (during delivery)"
+```
+
+> **Notlar:**
+> - `Order.ItemsJson` → JSONB kolonunda sipariş kalemleri (ürün adı, adet, fiyat snapshot) saklanır
+> - `CourierStatus`: `Available` | `Busy` | `Offline`
+> - `OrderStatus`: `Pending` → `ReadyForPickup` → `Assigned` → `Picked` → `Delivered` / `Failed` / `Cancelled`
+> - `ApplicationStatus`: `Pending` | `Approved` | `Rejected`
+> - `Courier.CurrentLocation*` ve `Restaurant.Location*` ileride PostGIS `geography(Point, 4326)` tipine taşınacak
+
+---
+
 ## 🔑 Öne Çıkan Teknik Özellikler
 
 - **Durum Makinesi**: Sipariş geçişleri `AllowedTransitions` dictionary ile kontrol edilir, geçersiz geçişler 422 döner
