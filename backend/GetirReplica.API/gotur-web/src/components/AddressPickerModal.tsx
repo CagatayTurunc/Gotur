@@ -148,8 +148,6 @@ export default function AddressPickerModal() {
   const P  = { color: 'var(--text-primary)' }
   const S  = { color: 'var(--text-secondary)' }
   const A  = { color: 'var(--accent)' }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const CARD = { backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }
   const INPUT = { backgroundColor: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }
 
   const modal = (
