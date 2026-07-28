@@ -73,7 +73,11 @@ builder.Services.AddScoped<IMatchingService, MatchingService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://gotur.site",
+                "https://www.gotur.site")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()); // SignalR için gerekli

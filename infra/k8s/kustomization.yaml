@@ -10,6 +10,7 @@ resources:
   - redis.yaml         # Redis — bağımlılık, API'den önce hazır olmalı
   - api.yaml           # API — readiness probe postgres+redis'i bekler
   - frontend.yaml      # Frontend — API'ye bağımlı değil, paralel başlayabilir
+  - middleware.yaml    # Traefik HTTP→HTTPS redirect middleware
   - ingress.yaml       # Ingress — servisler hazır olduktan sonra trafik yönlendir
   - autoscaling.yaml   # HPA + PDB — deployment'lardan sonra
 
