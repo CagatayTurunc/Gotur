@@ -48,6 +48,7 @@ TestResults/
 coverage.xml
 *.coverage
 *.coveragexml
+tests/load/results/
 
 # ─── Sensitive Configuration ────────────────────────────────
 # appsettings.json is committed as a TEMPLATE (no real secrets).

@@ -1,0 +1,211 @@
+name: CI Pipeline
+
+# Bu pipeline her PR ve main/develop push'unda çalışır.
+# Adım sırası: build → docker → smoke test → k8s manifest check → (main'de) image push
+# Her adım neden var: koda güven katmanları. Her katman farklı bir şeyi doğrular.
+
+permissions:
+  contents: read
+  packages: write   # GHCR'a image push için gerekli
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 1. Backend Build & Test ───────────────────────────────────────────────
+  # Neden: Derleme hatası veya bozuk test varsa sonraki adımlara geçme.
+  # Docker build'den önce yapılır çünkü çok daha hızlıdır — erken geri bildirim.
+  backend:
+    name: Backend (.NET 9)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: backend/GetirReplica.API
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: backend/GetirReplica.API
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+        working-directory: backend/GetirReplica.API
+
+  # ── 2. Frontend Build & Type Check ───────────────────────────────────────
+  # Neden: TypeScript tip hatalarını derleme hataları gibi yakala.
+  # npm ci; package-lock.json'u baz alır — herkes aynı versiyonu çeker.
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/GetirReplica.API/gotur-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: backend/GetirReplica.API/gotur-web
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+        working-directory: backend/GetirReplica.API/gotur-web
+
+      - name: Build
+        run: npm run build
+        working-directory: backend/GetirReplica.API/gotur-web
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/GetirReplica.API/gotur-web/dist
+          retention-days: 7
+
+  # ── 3. Docker Image Build ─────────────────────────────────────────────────
+  # Neden: Dockerfile'ın derlenebilir olduğunu doğrula.
+  # Sadece main push'unda push eder — PR'larda yalnızca build kontrolü yapılır.
+  # Image tag: git SHA → immutable, her commit farklı image, rollback kolay.
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GHCR = GitHub Container Registry.
+      # Image'lar github.com/cagatayturunc adı altında saklanır.
+      # GITHUB_TOKEN otomatik oluşturulur, ek secret gerekmez.
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/GetirReplica.API
+          file: ./backend/GetirReplica.API/Dockerfile
+          # PR'da push: false → sadece build hatası kontrol edilir, registry'ye gitmez
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/gotur-api:latest
+            ghcr.io/${{ github.repository_owner }}/gotur-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/GetirReplica.API/gotur-web
+          file: ./backend/GetirReplica.API/gotur-web/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/gotur-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/gotur-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── 4. k6 Smoke Test (gerçek API + DB + Redis) ───────────────────────────
+  # Neden: "Derlendi" demek "çalışıyor" demek değildir.
+  # Gerçek PostgreSQL ve Redis ile ayağa kaldırıp login akışını test et.
+  # docker compose up api → /health/ready probe'u geçene kadar bekle → k6 smoke.
+  # health check condition: api servisinin kendi healthcheck'ini bekler (60sn timeout).
+  load-smoke:
+    name: k6 Login Smoke Test
+    runs-on: ubuntu-latest
+    needs: [backend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --build: her CI'da fresh image. api servisi kendi /health/ready'ini geçene
+      # kadar depends_on beklediği için burada ayrıca curl döngüsüne gerek yok.
+      - name: Start API stack
+        run: docker compose up -d --build postgres redis api
+
+      # docker compose'un health check'ini bekle.
+      # api servisi healthy olmadan devam etme.
+      - name: Wait for API to be healthy
+        shell: bash
+        run: |
+          echo "API health check bekleniyor..."
+          for attempt in {1..60}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' gotur-api 2>/dev/null || echo "missing")
+            echo "  Deneme $attempt/60 — container durumu: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "API hazır."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "API zamanında hazır olmadı. Loglar:"
+          docker compose logs api postgres redis
+          exit 1
+
+      - name: Run k6 smoke profile
+        run: |
+          mkdir -p tests/load/results
+          docker run --rm --network host \
+            -e BASE_URL=http://127.0.0.1:5131 \
+            -e PROFILE=smoke \
+            -v "${{ github.workspace }}/tests/load:/scripts" \
+            -w /scripts \
+            grafana/k6:0.57.0 run login.js
+
+      - name: Upload k6 summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-login-summary
+          path: tests/load/results/login-summary.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Stop test environment
+        if: always()
+        run: docker compose down -v
+
+  # ── 5. Kubernetes Manifest Doğrulaması ───────────────────────────────────
+  # Neden: kubectl kustomize tüm YAML'ları birleştirip render eder.
+  # Syntax hatası veya eksik referans varsa bu adım patlar.
+  # Gerçek cluster gerekmez; sadece kubectl binary yeterli.
+  kubernetes:
+    name: Kubernetes Manifest Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # kubectl kustomize: kustomization.yaml'daki tüm dosyaları birleştirip
+      # çıktı üretir. Hata yoksa stdout'a YAML döker, pipeline yeşil kalır.
+      - name: Render Kustomize manifests
+        run: kubectl kustomize infra/k8s

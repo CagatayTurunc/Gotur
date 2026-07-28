@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gotur-api-config
+  namespace: gotur
+# ConfigMap: hassas olmayan ayarlar buraya gelir.
+# Şifreler, connection string'ler Secret'ta tutulur (secret.example.yaml).
+data:
+  ASPNETCORE_ENVIRONMENT: Production
+  ASPNETCORE_URLS: http://+:8080
+
+  # JWT — secret değil, public ayarlar
+  Jwt__Issuer: GetirReplicaAPI
+  Jwt__Audience: GetirReplicaClient
+  Jwt__ExpiryMinutes: "60"
+
+  # PostgreSQL host — şifre Secret'tan ayrıca inject edilir (api.yaml'da envFrom)
+  # "postgres" = Kubernetes Service adı, cluster içi DNS ile çözülür
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: getir_replica
+
+  # Redis host — şifre Secret'tan inject edilir
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"

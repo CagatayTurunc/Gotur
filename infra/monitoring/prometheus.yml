@@ -1,0 +1,36 @@
+# Prometheus konfigürasyonu
+#
+# Prometheus "pull" modeliyle çalışır: metrik üreticisine gidip veri çeker.
+# Bu "push" modelinden (loglar gibi) farklıdır.
+# Avantajı: servis durunca Prometheus bunu hemen fark eder (scrape başarısız).
+
+global:
+  # Her 15 saniyede bir tüm target'lardan veri çek.
+  # Daha düşük interval = daha fazla storage, daha yüksek CPU.
+  # 15sn üretim standardıdır.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ── Gotur API ───────────────────────────────────────────────────────────────
+  # job_name: Grafana'da bu metrikler "gotur-api" label'ıyla görünür.
+  # targets: docker-compose'da api servisi port 8080'de çalışır.
+  #          "gotur-api:8080" → docker network içi isim çözümlemesi.
+  - job_name: "gotur-api"
+    static_configs:
+      - targets: ["gotur-api:8080"]
+    # /metrics endpoint'i API'nin prometheus-net paketi tarafından sağlanır.
+    metrics_path: /metrics
+    # Metrikler şunları içerir:
+    #   http_requests_total          — endpoint/method/status bazlı sayaç
+    #   http_request_duration_seconds — latency histogram (p50/p95/p99 buradan)
+    #   process_cpu_seconds_total     — .NET process CPU kullanımı
+    #   dotnet_gc_collections_total   — Garbage Collector çalışma sayısı
+    #   dotnet_total_memory_bytes     — heap boyutu
+
+  # ── Prometheus'un kendisi ────────────────────────────────────────────────────
+  # Prometheus kendi metriklerini de expose eder — kaç scrape başarılı,
+  # storage ne kadar dolu, vb. Self-monitoring için.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

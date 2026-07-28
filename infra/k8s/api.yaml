@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gotur-api
+  namespace: gotur
+  labels:
+    app.kubernetes.io/name: gotur-api
+    app.kubernetes.io/part-of: gotur
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # maxUnavailable: 0 → yeni pod readiness probe geçmeden eski pod ölmez.
+      # Deploy sırasında hiç kesinti yok.
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gotur-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gotur-api
+        app.kubernetes.io/part-of: gotur
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: ghcr.io/cagatayturunc/gotur-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          # ConfigMap'ten public ayarlar
+          envFrom:
+            - configMapRef:
+                name: gotur-api-config
+          # Secret'tan hassas değerler — her biri ayrı env var olarak inject edilir.
+          # .NET Configuration bu env var'ları otomatik okur:
+          # ConnectionStrings__Default → appsettings'teki ConnectionStrings.Default
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: REDIS_PASSWORD
+            # .NET connection string formatı — Secret değerlerini birleştirir
+            - name: ConnectionStrings__Default
+              value: "Host=postgres;Port=5432;Database=getir_replica;Username=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD)"
+            - name: ConnectionStrings__Redis
+              value: "redis:6379,password=$(REDIS_PASSWORD)"
+            - name: Jwt__Secret
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: Jwt__Secret
+
+          # Readiness: PostgreSQL + Redis bağlantısını doğrular.
+          # Başarısız olursa pod trafik almaz ama restart etmez.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Liveness: sadece process sağlığı.
+          # Bağımlılık arızasında restart döngüsü oluşturmaz.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+
+          # Güvenlik: root olarak çalışma, dosya sistemini readonly yap
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotur-api
+  namespace: gotur
+  labels:
+    app.kubernetes.io/name: gotur-api
+spec:
+  selector:
+    app.kubernetes.io/name: gotur-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

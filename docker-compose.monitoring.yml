@@ -1,0 +1,66 @@
+# Gözlemlenebilirlik stack'i — Prometheus + Grafana
+#
+# Ana docker-compose.yml ile birlikte kullanılır:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# Bu ayrı dosyada tutulur çünkü:
+# - Günlük geliştirmede Prometheus/Grafana'ya gerek yok
+# - CI/CD'de sadece API çalıştırmak yeterli
+# - Monitoring, uygulama bağımlılığı değil, gözlem aracıdır
+#
+# Erişim:
+#   Prometheus:  http://localhost:9090
+#   Grafana:     http://localhost:3001  (admin / gotur-admin)
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: gotur-prometheus
+    # prometheus.yml → hangi servisleri scrape edeceğini tanımlar
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - gotur_prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      # Metrikleri 15 gün sakla (varsayılan 15 gün, demo için yeterli)
+      - "--storage.tsdb.retention.time=15d"
+      # Web arayüzü ve API için
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    # API'ye bağımlı — API yoksa scrape yapamaz, ama çalışmaya devam eder.
+    # depends_on zorunlu değil; Prometheus bağlantı hatalarını tolere eder.
+    networks:
+      - default
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: gotur-grafana
+    environment:
+      # Varsayılan admin şifresi. Üretimde secret ile ver.
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=gotur-admin
+      # Anonim erişimi kapat (güvenlik)
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      # Dashboard güncelleme aralığı
+      - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=5s
+      # Telemetri gönderme (gizlilik)
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+    volumes:
+      # Provisioning: container ayağa kalktığında Prometheus datasource
+      # ve Gotur dashboard'ı otomatik yüklenir. Elle kurulum gerekmez.
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Grafana state'ini koru (dashboard değişiklikleri, kullanıcılar)
+      - gotur_grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - default
+    restart: unless-stopped
+
+volumes:
+  gotur_prometheus_data:
+  gotur_grafana_data:

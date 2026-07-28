@@ -1,0 +1,20 @@
+# Grafana veri kaynağı otomatik provisioning.
+# Bu dosya container başladığında Grafana tarafından okunur.
+# Elle "Add data source" yapmanı gerektirmez.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # Grafana → Prometheus'a bu URL üzerinden bağlanır.
+    # "prometheus:9090" → docker-compose servis adı, iç network üzerinden.
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      # Her 15sn'de bir Prometheus'tan veri çek (dashboard refresh ile uyumlu).
+      timeInterval: "15s"
+      # PromQL sorgularını daha verimli çalıştıran Prometheus 2.x özelliği.
+      exemplarTraceIdDestinations: []

@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gotur-frontend
+  namespace: gotur
+  labels:
+    app.kubernetes.io/name: gotur-frontend
+    app.kubernetes.io/part-of: gotur
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gotur-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gotur-frontend
+        app.kubernetes.io/part-of: gotur
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/cagatayturunc/gotur-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotur-frontend
+  namespace: gotur
+  labels:
+    app.kubernetes.io/name: gotur-frontend
+spec:
+  selector:
+    app.kubernetes.io/name: gotur-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

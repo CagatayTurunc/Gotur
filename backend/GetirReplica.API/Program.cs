@@ -8,7 +8,10 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using Prometheus;
 using Serilog;
+using System.Reflection;
 using ITokenService = GetirReplica.API.Services.ITokenService;
 using TokenService = GetirReplica.API.Services.TokenService;
 
@@ -84,6 +87,17 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSerilogRequestLogging();
 
+// Prometheus HTTP metriklerini toplar.
+// Bu middleware her isteği sayar ve süresini ölçer.
+// /metrics endpoint'i Prometheus tarafından scrape edilir.
+// ÖNEMLI: UseRouting()'den sonra, MapControllers()'dan önce gelmeli.
+app.UseHttpMetrics(options =>
+{
+    // /metrics ve /health endpoint'leri kendi kendini saymasın —
+    // bunlar internal araçlar, iş metriği değil.
+    options.ReduceStatusCodeCardinality();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -108,7 +122,81 @@ if (app.Environment.IsDevelopment())
 app.MapControllers();
 app.MapHub<TrackingHub>("/hubs/tracking");
 
+// Prometheus scrape endpoint'i.
+// Grafana → Prometheus → burası zinciri bu endpoint üzerinden kurulur.
+// Örnek çıktı:
+//   http_requests_total{method="POST",route="/api/auth/login",status="200"} 1523
+//   http_request_duration_seconds_bucket{le="0.5",...} 1489
+// /health ve /swagger gibi internal yollar Swagger'da görünmez.
+app.MapMetrics("/metrics").ExcludeFromDescription();
+
+// Kubernetes probe'ları ve operasyonel görünürlük.
+// Liveness yalnızca process'in cevap verdiğini, readiness ise bağımlılıkların
+// istek kabul etmeye hazır olduğunu doğrular.
+app.MapGet("/health/live", () => Results.Ok(new
+{
+    status = "live",
+    timestamp = DateTime.UtcNow
+}));
+
+app.MapGet("/health/ready", async (
+    AppDbContext db,
+    IDistributedCache cache,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        if (!await db.Database.CanConnectAsync(cancellationToken))
+            return Results.Json(new { status = "not_ready", dependency = "postgresql" }, statusCode: 503);
+
+        const string readinessKey = "health:readiness";
+        await cache.SetStringAsync(
+            readinessKey,
+            DateTime.UtcNow.ToString("O"),
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(15)
+            },
+            cancellationToken);
+
+        if (await cache.GetStringAsync(readinessKey, cancellationToken) is null)
+            return Results.Json(new { status = "not_ready", dependency = "redis" }, statusCode: 503);
+
+        return Results.Ok(new
+        {
+            status = "ready",
+            dependencies = new[] { "postgresql", "redis" },
+            timestamp = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Readiness kontrolü başarısız.");
+        return Results.Json(new { status = "not_ready" }, statusCode: 503);
+    }
+}).ExcludeFromDescription();
+
+app.MapGet("/api/meta/version", () =>
+{
+    var assembly = Assembly.GetExecutingAssembly().GetName();
+    return Results.Ok(new
+    {
+        service = "GetirReplica.API",
+        apiVersion = "v1",
+        applicationVersion = assembly.Version?.ToString(3) ?? "unknown",
+        framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+    });
+}).ExcludeFromDescription();
+
 // ── Seed Data ─────────────────────────────────────────────────────────────────
-await DataSeeder.SeedAsync(app.Services);
+// Production/Kubernetes ortamında migration ayrı bir release adımı olarak
+// çalıştırılır; birden fazla replica'nın aynı anda schema değiştirmesi önlenir.
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+    await DataSeeder.SeedAsync(app.Services);
+}
 
 app.Run();

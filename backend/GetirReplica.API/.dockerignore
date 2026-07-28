@@ -1,0 +1,11 @@
+bin/
+obj/
+gotur-web/
+.git/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+appsettings.Local.json
+appsettings.Production.json

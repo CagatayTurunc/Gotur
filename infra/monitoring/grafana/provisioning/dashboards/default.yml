@@ -1,0 +1,16 @@
+# Grafana dashboard provisioning.
+# Bu klasördeki JSON dosyaları Grafana başlayınca otomatik yüklenir.
+# Dashboard'ı elle import etmen gerekmez.
+
+apiVersion: 1
+
+providers:
+  - name: "Gotur Dashboards"
+    orgId: 1
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      # Bu klasördeki tüm .json dosyaları dashboard olarak yüklenir.
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,73 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gotur
+  namespace: gotur
+  annotations:
+    # k3s varsayılan ingress controller'ı Traefik'tir.
+    # nginx yerine Traefik annotation'ları kullanılır.
+
+    # WebSocket (SignalR) için gerekli header'lar.
+    # Traefik bunları middleware üzerinden ekler.
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+
+    # HTTPS otomatik yönlendirme — HTTP'ye gelen istek HTTPS'e gider.
+    # cert-manager kurulunca Let's Encrypt sertifikası otomatik alınır.
+    # Şimdilik kapalı; domain + cert-manager kurulunca açılır.
+    # traefik.ingress.kubernetes.io/router.middlewares: gotur-redirect-https@kubernetescrd
+spec:
+  # k3s ile gelen Traefik ingress controller.
+  # "nginx" yerine "traefik" yazıyoruz — tek fark bu.
+  ingressClassName: traefik
+  rules:
+    # DOMAIN: AWS'de EC2 IP'si veya domain alındığında burası güncellenir.
+    # Şimdilik placeholder — deploy sırasında değiştirilir.
+    - host: gotur.example.com
+      http:
+        paths:
+          # ── API — REST endpoint'leri ─────────────────────────────────────
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gotur-api
+                port:
+                  name: http
+
+          # ── SignalR WebSocket hub ────────────────────────────────────────
+          # /hubs/tracking → TrackingHub
+          # Traefik WebSocket upgrade'i otomatik destekler.
+          - path: /hubs
+            pathType: Prefix
+            backend:
+              service:
+                name: gotur-api
+                port:
+                  name: http
+
+          # ── Health + operasyonel endpoint'ler ───────────────────────────
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: gotur-api
+                port:
+                  name: http
+
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: gotur-api
+                port:
+                  name: http
+
+          # ── Frontend (React SPA) — en sona gelir ────────────────────────
+          # Yukarıdaki path'lere uymayan her şey frontend'e gider.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gotur-frontend
+                port:
+                  name: http

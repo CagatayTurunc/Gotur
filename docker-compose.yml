@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL — postgis/postgis image PostGIS destekler
   # Not: postgis/postgis:16-3.4 image'ı Docker Hub'dan çekilmezse
@@ -11,6 +9,8 @@ services:
       POSTGRES_DB: getir_replica
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
       - "5432:5432"
     volumes:
@@ -19,13 +19,14 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      start_period: 120s
+      retries: 12
 
   redis:
     image: redis:7-alpine
     container_name: gotur-redis
     ports:
-      - "6379:6379"
+      - "${GOTUR_REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -38,7 +39,7 @@ services:
       dockerfile: Dockerfile
     container_name: gotur-api
     ports:
-      - "5131:8080"
+      - "${GOTUR_API_PORT:-5131}:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Default=Host=postgres;Port=5432;Database=getir_replica;Username=postgres;Password=postgres
@@ -52,6 +53,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # /health/ready; PostgreSQL + Redis bağlantısını doğrular.
+    # CI pipeline bu probe'u bekler; seed data yüklenmeden k6 başlamaz.
+    # aspnet:9.0 image'ında curl yok; wget kullanılır (Debian base'de mevcut).
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 10
 
   frontend:
     build:

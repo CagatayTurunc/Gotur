@@ -40,11 +40,11 @@ Bu MVP, o akışın çalışan minimal bir kopyasıdır.
 ### 1. Backend — .NET Web API (Controller tabanlı)
 
 **Getir'de:** Node.js ve Java microservices
-**Bizde:** ASP.NET Core Web API (.NET 8)
+**Bizde:** ASP.NET Core Web API (.NET 9)
 
 **Neden .NET seçtik?**
 - VBT'nin kurumsal ürünleri (Heroty, Flerpi, VizyonİK) büyük ihtimalle .NET tabanlı; ekibin bilgi birikimi bu yönde.
-- .NET 8 minimal API'ye kıyasla controller tabanlı yapı, büyük projelerde sorumlulukları net ayırır; Swagger entegrasyonu daha temiz çalışır.
+- .NET 9 minimal API'ye kıyasla controller tabanlı yapı, büyük projelerde sorumlulukları net ayırır; Swagger entegrasyonu daha temiz çalışır.
 - Node.js'in non-blocking I/O avantajı bu ölçekte anlamsız; .NET'in async/await desteği yeterli.
 
 **Trade-off:**
@@ -263,7 +263,7 @@ Unsigned upload preset herkese açık — preset adı bilinen biri teorik olarak
           │ REST + SignalR  │ REST + SignalR     │ REST
           ▼                ▼                    ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      API LAYER (.NET 8)                      │
+│                      API LAYER (.NET 9)                      │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
 │  │   Orders    │  │   Couriers   │  │    Auth/Users     │  │
 │  │ Controller  │  │  Controller  │  │    Controller     │  │
@@ -367,3 +367,24 @@ Orders Controller
 | OSM+Leaflet | Google Maps | Ücretsiz, MVP için yeterli |
 | JWT | Session | Stateless, mobil+web aynı mekanizma |
 | Cloudinary | AWS S3 + CDN | Sıfır altyapı, CDN dahil, MVP için yeterli — presigned URL pattern'ine migration path açık |
+
+---
+
+## Ölçek, Test Otomasyonu ve Kubernetes
+
+API `1.0.0` SemVer sürümüyle derlenir; `/api/meta/version` çalışan backend ve
+framework sürümünü, `/health/live` process sağlığını, `/health/ready` ise
+PostgreSQL + Redis hazırlığını bildirir.
+
+“1 milyon kullanıcı” doğrulanmamış bir kapasite iddiası olarak değil, k6 ile
+tekrarlanabilir toplam 1.000.000 login iterasyonu olarak modellenmiştir.
+Smoke/load/million profilleri, p95/p99 latency ve hata oranı eşikleri
+`tests/load` altında bulunur.
+
+Kubernetes manifestleri API'yi en az 3 replica ile, rolling update,
+readiness/liveness probe, resource limit, PodDisruptionBudget ve 3–20 pod HPA
+ile çalıştırır. PostgreSQL ile Redis production ortamında yönetilen servis,
+uygulama pod'ları ise stateless kabul edilir.
+
+Detaylı sistem mühendisliği ve ölçüm planı:
+[docs/ENGINEERING.md](./docs/ENGINEERING.md)

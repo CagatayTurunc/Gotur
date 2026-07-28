@@ -24,7 +24,7 @@ Detaylı trade-off analizleri için → [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 | Katman | Teknoloji | Getir'de Karşılığı |
 |--------|-----------|-------------------|
-| Backend | ASP.NET Core 8 Web API | Node.js / Java |
+| Backend | ASP.NET Core 9 Web API (API v1 / SemVer 1.0.0) | Node.js / Java |
 | Veritabanı | PostgreSQL + JSONB | MongoDB |
 | Real-time | SignalR (WebSocket) | WebSockets |
 | Cache | Redis | Redis ✓ |
@@ -82,11 +82,11 @@ npm run dev
 
 | Rol | Email | Şifre |
 |-----|-------|-------|
-| Müşteri | musteri@test.com | Test123! |
-| Kurye 1 | kurye1@test.com | Test123! |
-| Kurye 2 | kurye2@test.com | Test123! |
-| Restoran | restoran@test.com | Test123! |
-| Admin | admin@getir.com | Admin123! |
+| Müşteri | ahmet.yilmaz@gotur.com | Test123! |
+| Kurye 1 | kurye.istanbul1@gotur.com | Test123! |
+| Kurye 2 | kurye.ankara1@gotur.com | Test123! |
+| Restoran | karadeniz.mangal@gotur.com | Rest123! |
+| Admin | admin@gotur.com | Admin123! |
 
 ---
 
@@ -106,7 +106,7 @@ npm run dev
 ```
 getir-replica/
 ├── backend/
-│   └── GetirReplica.API/          # ASP.NET Core 8 Web API
+│   └── GetirReplica.API/          # ASP.NET Core 9 Web API
 │       ├── Controllers/           # Auth, Orders, Couriers, Admin, Restaurants
 │       ├── Services/              # OrderService, LocationService, MatchingService, TokenService
 │       ├── Hubs/                  # SignalR TrackingHub
@@ -246,13 +246,46 @@ erDiagram
 
 ---
 
+## 📊 Gözlemlenebilirlik (Prometheus + Grafana)
+
+```bash
+# API + monitoring stack'ini birlikte başlat
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
+
+| Araç | Adres | Giriş |
+|------|-------|-------|
+| Grafana Dashboard | http://localhost:3001 | admin / gotur-admin |
+| Prometheus | http://localhost:9090 | — |
+| API Metrics | http://localhost:5131/metrics | — |
+
+"Gotur API — Gözlemlenebilirlik" dashboard'ı otomatik yüklü gelir:
+HTTP throughput, p50/p95/p99 latency, hata oranı, .NET CPU/memory.
+
+Detaylar → [infra/monitoring/README.md](./infra/monitoring/README.md)
+
+---
+
 ## 🔑 Öne Çıkan Teknik Özellikler
 
+- **Gözlemlenebilirlik**: prometheus-net ile `/metrics` endpoint'i; Prometheus scrape + Grafana dashboard (p50/p95/p99 latency, throughput, hata oranı, .NET CPU/GC) otomatik provisioning ile
 - **Durum Makinesi**: Sipariş geçişleri `AllowedTransitions` dictionary ile kontrol edilir, geçersiz geçişler 422 döner
 - **Eşleştirme Algoritması**: Haversine formülü ile 10km yarıçap, 5 dakika stale konum filtresi, 3 deneme retry (Hangfire)
 - **SignalR Grupları**: Her sipariş için `order:{id}` grubu, kuryeler için `courier:{id}` grubu
 - **Redis Rate Limit**: Kurye konumu 3sn'de bir kabul edilir, aşımı 429 döner
 - **Redis Cache**: Kurye anlık konumu 30sn TTL ile önbellekte, SignalR backplane
+- **Test Otomasyonu**: k6 ile smoke, sabit yük ve toplam 1.000.000 login profili; p95/p99 ve hata oranı eşikleri
+- **Sistem Mühendisliği**: CI build/type-check, Docker image doğrulama, health/readiness probe ve sürüm endpoint'i
+- **Kubernetes**: Rolling update, 3–20 API pod HPA, resource limit, readiness/liveness ve PodDisruptionBudget
+- **Analitik / Gözlemlenebilirlik**: k6 JSON sonuçları, structured log ve Prometheus/Grafana için tanımlı ölçüm planı
+
+Detaylı ölçek senaryosu, Redis kavramları, pipeline ve deployment yaklaşımı:
+[Sistem Mühendisliği, Ölçek ve Operasyon](./docs/ENGINEERING.md)
+
+Çalıştırılabilir dosyalar:
+
+- [k6 login yük testleri](./tests/load/README.md)
+- [Kubernetes deployment manifestleri](./infra/k8s/README.md)
 
 ---
 
