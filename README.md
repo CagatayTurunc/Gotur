@@ -4,6 +4,7 @@
 > Referans sistem: **Getir** (stackshare.io + mühendislik iş ilanları)
 
 [![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?logo=youtube)](https://youtube.com/TODO)
+[![Live](https://img.shields.io/badge/Live-gotur.site-success?logo=kubernetes)](https://gotur.site)
 
 ---
 
