@@ -20,10 +20,9 @@ spec:
   # "nginx" yerine "traefik" yazıyoruz — tek fark bu.
   ingressClassName: traefik
   rules:
-    # DOMAIN: AWS'de EC2 IP'si veya domain alındığında burası güncellenir.
-    # Şimdilik placeholder — deploy sırasında değiştirilir.
-    - host: gotur.example.com
-      http:
+    # Host kuralı yok — IP ile direkt erişim.
+    # Domain alındığında buraya host: gotur.xyz eklenir.
+    - http:
         paths:
           # ── API — REST endpoint'leri ─────────────────────────────────────
           - path: /api
