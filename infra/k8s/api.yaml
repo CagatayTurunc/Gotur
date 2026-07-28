@@ -28,8 +28,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: ghcr.io/cagatayturunc/gotur-api:latest
-          imagePullPolicy: Always
+          image: docker.io/library/gotur-api:latest
+          imagePullPolicy: Never
           ports:
             - name: http
               containerPort: 8080

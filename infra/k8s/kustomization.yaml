@@ -17,6 +17,8 @@ resources:
 # CI'da: kustomize edit set image ... ile SHA otomatik güncellenir.
 images:
   - name: ghcr.io/cagatayturunc/gotur-api
+    newName: docker.io/library/gotur-api
     newTag: latest
   - name: ghcr.io/cagatayturunc/gotur-frontend
+    newName: docker.io/library/gotur-frontend
     newTag: latest
