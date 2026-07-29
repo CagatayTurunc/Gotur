@@ -181,4 +181,77 @@ public class CouriersController : ControllerBase
         var courier = await _db.Couriers.FirstOrDefaultAsync(c => c.UserId == userId);
         return courier?.Id ?? Guid.Empty;
     }
+
+    [HttpGet("available-orders")]
+    [Authorize(Roles = "courier")]
+    public async Task<IActionResult> GetAvailableOrders()
+    {
+        var orders = await _db.Orders
+            .Include(o => o.Restaurant)
+            .Where(o => o.Status == OrderStatus.ReadyForPickup)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        return Ok(orders.Select(o => new
+        {
+            id = o.Id,
+            restaurantName = o.Restaurant?.Name ?? "Bilinmiyor",
+            deliveryAddress = o.DeliveryAddress,
+            createdAt = o.CreatedAt,
+            status = o.Status.ToString(),
+            restaurantLocationLat = o.Restaurant?.LocationLat,
+            restaurantLocationLng = o.Restaurant?.LocationLng
+        }));
+    }
+
+    [HttpPost("orders/{orderId:guid}/accept")]
+    [Authorize(Roles = "courier")]
+    public async Task<IActionResult> AcceptOrder(Guid orderId)
+    {
+        var courierId = await GetCurrentCourierIdAsync();
+        if (courierId == Guid.Empty) return BadRequest(new { message = "Kurye profili bulunamadı." });
+
+        var courier = await _db.Couriers.FindAsync(courierId);
+        if (courier?.Status == CourierStatus.Busy)
+            return BadRequest(new { message = "Zaten aktif bir siparişiniz var." });
+
+        var order = await _db.Orders.FindAsync(orderId);
+        if (order == null) return NotFound(new { message = "Sipariş bulunamadı." });
+
+        if (order.Status != OrderStatus.ReadyForPickup)
+            return BadRequest(new { message = "Bu sipariş henüz hazırlanmamış veya başka bir kurye tarafından üstlenilmiş." });
+
+        order.Status = OrderStatus.Assigned;
+        order.CourierId = courierId;
+        order.AssignedAt = DateTime.UtcNow;
+
+        if (courier != null) courier.Status = CourierStatus.Busy;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Siparişi teslim aldınız.", orderId });
+    }
+
+    [HttpGet("history")]
+    [Authorize(Roles = "courier")]
+    public async Task<IActionResult> GetCourierHistory()
+    {
+        var courierId = await GetCurrentCourierIdAsync();
+        if (courierId == Guid.Empty) return BadRequest();
+
+        var history = await _db.Orders
+            .Include(o => o.Restaurant)
+            .Where(o => o.CourierId == courierId && o.Status == OrderStatus.Delivered)
+            .OrderByDescending(o => o.DeliveredAt)
+            .Select(o => new
+            {
+                id = o.Id,
+                restaurantName = o.Restaurant.Name,
+                deliveryAddress = o.DeliveryAddress,
+                deliveredAt = o.DeliveredAt
+            })
+            .ToListAsync();
+
+        return Ok(history);
+    }
 }
