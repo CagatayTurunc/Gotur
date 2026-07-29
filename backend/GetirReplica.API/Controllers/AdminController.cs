@@ -14,7 +14,7 @@ using System.Security.Claims;
 namespace GetirReplica.API.Controllers;
 
 /// <summary>
-/// Admin paneli — tüm siparişler ve kurye yönetimi.
+/// Admin paneli — tüm siparişler, kurye yönetimi ve feature flag kontrolü.
 /// </summary>
 [ApiController]
 [Route("api/admin")]
@@ -25,13 +25,20 @@ public class AdminController : ControllerBase
     private readonly AppDbContext _db;
     private readonly UserManager<AppUser> _userManager;
     private readonly IMatchingService _matchingService;
+    private readonly IFeatureFlagService _featureFlagService;
 
-    public AdminController(IOrderService orderService, AppDbContext db, UserManager<AppUser> userManager, IMatchingService matchingService)
+    public AdminController(
+        IOrderService orderService,
+        AppDbContext db,
+        UserManager<AppUser> userManager,
+        IMatchingService matchingService,
+        IFeatureFlagService featureFlagService)
     {
         _orderService = orderService;
         _db = db;
         _userManager = userManager;
         _matchingService = matchingService;
+        _featureFlagService = featureFlagService;
     }
 
     /// <summary>
@@ -316,4 +323,51 @@ public class AdminController : ControllerBase
                 Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
         return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
+
+    // ── Feature Flag Yönetimi ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Tüm feature flag'leri listele.
+    /// </summary>
+    [HttpGet("feature-flags")]
+    [ProducesResponseType(typeof(IReadOnlyList<FeatureFlagDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFeatureFlags()
+    {
+        var flags = await _featureFlagService.GetAllFlagsAsync();
+        return Ok(flags);
+    }
+
+    /// <summary>
+    /// Feature flag değerini güncelle.
+    /// Örnek: yeni eşleştirme algoritmasını %10 trafiğe aç.
+    /// </summary>
+    [HttpPut("feature-flags/{flagName}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetFeatureFlag(
+        string flagName,
+        [FromBody] SetFeatureFlagDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(flagName))
+            return BadRequest(new { message = "Flag adı boş olamaz." });
+
+        await _featureFlagService.SetFlagAsync(
+            flagName,
+            dto.IsEnabled,
+            dto.RolloutPercentage);
+
+        return Ok(new
+        {
+            flagName,
+            isEnabled = dto.IsEnabled,
+            rolloutPercentage = dto.RolloutPercentage,
+            message = $"'{flagName}' flag'i güncellendi: {(dto.IsEnabled ? "AÇIK" : "KAPALI")} ({dto.RolloutPercentage}% rollout)"
+        });
+    }
 }
+
+/// <summary>Feature flag güncelleme isteği.</summary>
+public record SetFeatureFlagDto(
+    bool IsEnabled,
+    int RolloutPercentage = 100
+);

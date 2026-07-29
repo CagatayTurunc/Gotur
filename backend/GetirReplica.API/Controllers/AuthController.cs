@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using GetirReplica.API.Extensions;
 using GetirReplica.API.Models.DTOs.Auth;
 using GetirReplica.API.Models.Entities;
 using GetirReplica.API.Services;
@@ -6,6 +7,7 @@ using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace GetirReplica.API.Controllers;
@@ -15,6 +17,7 @@ namespace GetirReplica.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
+[EnableRateLimiting(RateLimitingExtensions.AuthPolicy)]
 public class AuthController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;

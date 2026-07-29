@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using GetirReplica.API.Data;
+using GetirReplica.API.Extensions;
 using GetirReplica.API.Models.DTOs.Couriers;
 using GetirReplica.API.Models.DTOs.Orders;
 using GetirReplica.API.Models.Enums;
 using GetirReplica.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 namespace GetirReplica.API.Controllers;
 
@@ -15,6 +17,7 @@ namespace GetirReplica.API.Controllers;
 [ApiController]
 [Route("api/couriers")]
 [Authorize]
+[EnableRateLimiting(RateLimitingExtensions.GeneralApiPolicy)]
 public class CouriersController : ControllerBase
 {
     private readonly ILocationService _locationService;

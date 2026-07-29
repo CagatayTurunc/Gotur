@@ -1,0 +1,34 @@
+# Structured Logging stack — Seq
+#
+# Ana docker-compose.yml ile birlikte kullanılır:
+#   docker compose -f docker-compose.yml -f docker-compose.logging.yml up -d
+#
+# Seq: Serilog için structured log arama ve görselleştirme UI'ı.
+# Her log satırında CorrelationId, UserId, OrderId gibi property'lerle filtreleme yapılır.
+#
+# Erişim:
+#   Seq UI:  http://localhost:5341
+#
+# Kullanım:
+#   Bir hata aldığında müşterinin bildirdiği X-Correlation-ID'yi Seq'te ara:
+#   filter: CorrelationId = "a1b2c3d4e5f6..."
+#   → O isteğe ait tüm log satırları görünür.
+
+services:
+  seq:
+    image: datalust/seq:2024.3
+    container_name: gotur-seq
+    environment:
+      # Development lisansı — ücretsiz, single-user
+      ACCEPT_EULA: "Y"
+    ports:
+      # UI + API (Serilog sink buraya yazar)
+      - "5341:80"
+    volumes:
+      - gotur_seq_data:/data
+    networks:
+      - default
+    restart: unless-stopped
+
+volumes:
+  gotur_seq_data:

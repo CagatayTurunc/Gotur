@@ -162,12 +162,20 @@ public class OrderService : IOrderService
 
         await _db.SaveChangesAsync();
 
-        await _hub.Clients.Group($"order:{orderId}").SendAsync("OrderStatusChanged", new
-        {
-            orderId = order.Id,
-            status = newStatus.ToString(),
-            timestamp = now
-        });
+        // Outbox pattern: SignalR direkt yerine, event DB'ye yazılır.
+        // OutboxProcessor (Hangfire) event'i alıp SignalR'a iletir.
+        // DB yazma başarılı ama SignalR geçici hata aldıysa → retry ile kurtarılır.
+        _db.OutboxEvents.Add(CreateOutboxEvent(
+            targetGroup: $"order:{orderId}",
+            eventType: "OrderStatusChanged",
+            payload: new
+            {
+                orderId = order.Id,
+                status = newStatus.ToString(),
+                timestamp = now
+            }
+        ));
+        await _db.SaveChangesAsync();
 
         _logger.LogInformation("Sipariş {OrderId} → {Status}", orderId, newStatus);
 
@@ -216,12 +224,18 @@ public class OrderService : IOrderService
 
         await _db.SaveChangesAsync();
 
-        await _hub.Clients.Group($"order:{orderId}").SendAsync("OrderStatusChanged", new
-        {
-            orderId = order.Id,
-            status = OrderStatus.Cancelled.ToString(),
-            timestamp = now
-        });
+        // Outbox pattern: event aynı kayıt döngüsünde DB'ye yazılır
+        _db.OutboxEvents.Add(CreateOutboxEvent(
+            targetGroup: $"order:{orderId}",
+            eventType: "OrderStatusChanged",
+            payload: new
+            {
+                orderId = order.Id,
+                status = OrderStatus.Cancelled.ToString(),
+                timestamp = now
+            }
+        ));
+        await _db.SaveChangesAsync();
 
         _logger.LogInformation("Sipariş {OrderId} müşteri tarafından iptal edildi.", orderId);
         return MapToDto(order);
@@ -257,13 +271,18 @@ public class OrderService : IOrderService
 
         await _db.SaveChangesAsync();
 
-        // Müşteri ve kurye takip ekranını bilgilendir
-        await _hub.Clients.Group($"order:{orderId}").SendAsync("OrderStatusChanged", new
-        {
-            orderId = order.Id,
-            status  = OrderStatus.Cancelled.ToString(),
-            timestamp = now
-        });
+        // Outbox pattern: müşteri ve kurye takip ekranı için event kaydedilir
+        _db.OutboxEvents.Add(CreateOutboxEvent(
+            targetGroup: $"order:{orderId}",
+            eventType: "OrderStatusChanged",
+            payload: new
+            {
+                orderId = order.Id,
+                status  = OrderStatus.Cancelled.ToString(),
+                timestamp = now
+            }
+        ));
+        await _db.SaveChangesAsync();
 
         _logger.LogInformation("Sipariş {OrderId} restoran tarafından iptal edildi.", orderId);
         return MapToDto(order);
@@ -363,5 +382,21 @@ public class OrderService : IOrderService
     {
         try { return JsonSerializer.Deserialize<List<OrderItemDto>>(json) ?? []; }
         catch { return []; }
+    }
+
+    /// <summary>
+    /// Outbox Pattern yardımcısı: DB işlemiyle aynı transaction içinde event kaydeder.
+    /// OutboxProcessor (Hangfire) bu event'leri alıp SignalR'a iletir.
+    /// Böylece "DB yazma başarılı ama bildirim kayboldu" senaryosu önlenir.
+    /// </summary>
+    private static OutboxEvent CreateOutboxEvent(string targetGroup, string eventType, object payload)
+    {
+        return new OutboxEvent
+        {
+            TargetGroup = targetGroup,
+            EventType = eventType,
+            Payload = JsonSerializer.Serialize(payload),
+            CreatedAt = DateTime.UtcNow
+        };
     }
 }

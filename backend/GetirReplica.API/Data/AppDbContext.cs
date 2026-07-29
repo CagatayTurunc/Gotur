@@ -16,6 +16,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<RestaurantApplication> RestaurantApplications => Set<RestaurantApplication>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<CourierLocationHistory> CourierLocationHistory => Set<CourierLocationHistory>();
+    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -107,6 +109,30 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
                 .WithMany(o => o.LocationHistory)
                 .HasForeignKey(h => h.OrderId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── OutboxEvent ──────────────────────────────────────────
+        // Outbox Pattern: DB yazma + event yayınlama tutarlılığı için.
+        // ProcessedAt IS NULL olan satırlar işlenmemiş event'leri temsil eder.
+        builder.Entity<OutboxEvent>(e =>
+        {
+            e.HasKey(o => o.Id);
+            e.Property(o => o.Payload).HasColumnType("jsonb");
+            // İşlenmemiş event'leri hızlı bulmak için partial index
+            e.HasIndex(o => o.ProcessedAt)
+                .HasFilter("\"ProcessedAt\" IS NULL");
+            e.HasIndex(o => o.CreatedAt);
+        });
+
+        // ── FeatureFlag ──────────────────────────────────────────
+        // Feature flag tablosu: kademeli rollout ve A/B test için.
+        builder.Entity<FeatureFlag>(e =>
+        {
+            e.HasKey(f => f.Id);
+            // Flag adı unique olmalı — aynı isimde iki flag olamaz
+            e.HasIndex(f => f.Name).IsUnique();
+            e.Property(f => f.Name).HasMaxLength(100);
+            e.Property(f => f.Description).HasMaxLength(500);
         });
     }
 }

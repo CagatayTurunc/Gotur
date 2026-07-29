@@ -25,7 +25,14 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
+            // CorrelationId varsa log'a ekle
+            var correlationId = context.Items.TryGetValue(
+                CorrelationIdMiddleware.CorrelationIdItemKey, out var cid)
+                ? cid?.ToString() : null;
+
+            _logger.LogError(ex,
+                "Unhandled exception: {Message} | CorrelationId: {CorrelationId}",
+                ex.Message, correlationId);
             await HandleExceptionAsync(context, ex, _env.IsDevelopment());
         }
     }
@@ -65,7 +72,6 @@ public class ExceptionMiddleware
                 break;
             case DbUpdateException dbEx:
                 statusCode = (int)HttpStatusCode.InternalServerError;
-                // Inner exception'ı da logla ve development'ta döndür
                 message = isDevelopment
                     ? $"Veritabanı hatası: {dbEx.InnerException?.Message ?? dbEx.Message}"
                     : "Sipariş kaydedilirken bir hata oluştu.";
@@ -80,10 +86,16 @@ public class ExceptionMiddleware
 
         context.Response.StatusCode = statusCode;
 
+        // CorrelationId'yi response body'ye ekle — client hata takibi için
+        var correlationId = context.Items.TryGetValue(
+            CorrelationIdMiddleware.CorrelationIdItemKey, out var cid)
+            ? cid?.ToString() : null;
+
         var response = new
         {
             status = statusCode,
-            message
+            message,
+            correlationId
         };
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));

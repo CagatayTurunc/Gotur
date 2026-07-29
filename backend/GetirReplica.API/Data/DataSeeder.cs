@@ -1,5 +1,6 @@
 using GetirReplica.API.Models.Entities;
 using GetirReplica.API.Models.Enums;
+using GetirReplica.API.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -90,6 +91,51 @@ public static class DataSeeder
         db.ChangeTracker.Clear();
 
         await SeedAllRestaurantsAsync(userManager, db);
+        await SeedFeatureFlagsAsync(db);
+    }
+
+    private static async Task SeedFeatureFlagsAsync(AppDbContext db)
+    {
+        // Varsayılan flag'ler — sadece yoksa ekle (idempotent)
+        var flags = new[]
+        {
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.NewMatchingAlgorithm,
+                IsEnabled        = false,
+                RolloutPercentage= 0,
+                Description      = "Yeni kurye eşleştirme algoritması. Önce %10 ile test edilir."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.MaintenanceMode,
+                IsEnabled        = false,
+                RolloutPercentage= 100,
+                Description      = "Bakım modu — açıksa tüm sipariş yaratma istekelri reddedilir."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.CourierSurgePricing,
+                IsEnabled        = false,
+                RolloutPercentage= 0,
+                Description      = "Yoğun saatlerde dinamik teslimat ücreti. Pilot aşamada."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.AdvancedOutboxRetry,
+                IsEnabled        = true,
+                RolloutPercentage= 100,
+                Description      = "Outbox processor için exponential backoff retry stratejisi."
+            },
+        };
+
+        foreach (var flag in flags)
+        {
+            if (!await db.FeatureFlags.AnyAsync(f => f.Name == flag.Name))
+                db.FeatureFlags.Add(flag);
+        }
+
+        await db.SaveChangesAsync();
     }
 
 

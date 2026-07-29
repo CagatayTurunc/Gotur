@@ -1,4 +1,4 @@
-# ARCHITECTURE.md
+﻿# ARCHITECTURE.md
 ## Sipariş Eşleştirme + Kurye Anlık Takip Sistemi — Mimari Kararlar
 
 > Bu belge, StackShare projesinin temel gereksinimlerinden biridir.
@@ -352,6 +352,8 @@ Orders Controller
                                     (max 3 deneme, sonra status: failed)
 ```
 
+
+
 ---
 
 ## Kritik Trade-off Özeti
@@ -361,12 +363,111 @@ Orders Controller
 | PostgreSQL | MongoDB | İlişkisel veri + PostGIS coğrafi sorgular |
 | SignalR | Raw WebSocket | Fallback, group yönetimi, .NET native |
 | Hangfire | RabbitMQ | MVP için sıfır operasyonel yük |
-| Redis | In-memory cache | Persist edebilir, SignalR backplane, GEO komutları |
+| Redis | In-memory cache | Distributed lock, SignalR backplane, GEO komutları |
 | Flutter | Kotlin+Swift | Tek codebase, MVP ölçeği için yeterli |
 | .NET | Node.js | VBT ekosistemi, tip güvenliği, ACID ihtiyacı |
 | OSM+Leaflet | Google Maps | Ücretsiz, MVP için yeterli |
 | JWT | Session | Stateless, mobil+web aynı mekanizma |
 | Cloudinary | AWS S3 + CDN | Sıfır altyapı, CDN dahil, MVP için yeterli — presigned URL pattern'ine migration path açık |
+
+---
+
+## Üretim Kalitesi: Distributed Systems Patterns
+
+Bu MVP, gerçek bir üretim sisteminde karşılaşılan sorunlara somut çözümler içerir.
+
+### 1. Race Condition → Distributed Lock + Optimistic Concurrency
+
+**Problem**: Paralel iki eşleştirme isteği aynı kuryeye çift atama yapabilir.
+
+**Çözüm**: Redis `SET NX` kilit + transaction içinde `freshCourier.Status` çift kontrol.
+
+```
+İstek 1 & İstek 2 → MatchingService
+    │
+    ├── Redis SET NX "matching:order:{id}" [LockExpiry=15sn]
+    │   ├── İstek 1: ALINDI → DoFindAndAssign çalışır
+    │   └── İstek 2: false → "sipariş zaten işleniyor" loglanır
+    │
+    └── İstek 1 → Transaction
+            ├── freshCourier = DB'den yeniden çek (Status=Available?)
+            ├── Evet → Assign + Commit ✓
+            └── Hayır → Rollback + retry (başka thread Busy yapmış)
+```
+
+### 2. Guaranteed Event Delivery → Outbox Pattern
+
+**Problem**: `order.Status = Delivered` DB'ye yazıldı, SignalR bildirimi sırasında restart → bildirim kaybolur.
+
+**Çözüm**: Aynı transaction içinde `OutboxEvents` tablosuna da yaz. Hangfire her 5sn işler.
+
+```
+UpdateStatusAsync() → aynı transaction
+    ├── order.Status = Delivered       ─┐
+    ├── courier.Status = Available      ├── COMMIT (atomik)
+    └── OutboxEvent { ... }            ─┘
+                │
+    OutboxProcessor (Hangfire, 5sn)
+                ├── SignalR.SendAsync() → Başarı: ProcessedAt = Now
+                └── Hata: RetryCount++ → max 5 → dead letter
+```
+
+"En az bir kez teslim" (at-least-once delivery) garantisi.
+
+### 3. Graceful Degradation → Polly Resilience
+
+**Problem**: Redis down → tüm API 500.
+
+**Çözüm**: `ResilientDistributedCache` — Polly üç katman: Timeout → CircuitBreaker → Retry.
+
+```
+Cache.GetAsync(key)
+    ├── Timeout(2s)           → aşılırsa TimeoutRejectedException
+    ├── CircuitBreaker        → 3 hata/3sn → 30sn "open" (Redis'e gidilmez)
+    └── Retry(3x exponential) → 100ms → 200ms → 400ms
+            │
+            ├── Başarı → normal akış
+            └── Tümü başarısız → null döner (cache miss)
+                                 → çağıran DB'den okur
+```
+
+### 4. Feature Flags → Kademeli Rollout
+
+**Problem**: Yeni algoritma direkt %100'e açılırsa sorun çıkınca tüm kullanıcı etkilenir.
+
+**Çözüm**: Deterministik SHA256 hash ile bucket sistemi.
+
+```
+bucket = SHA256(userId + "new_matching_algorithm") % 100
+RolloutPercentage = 10 → bucket < 10: açık  (%10 kullanıcı)
+                         bucket ≥ 10: kapalı (%90 kullanıcı)
+```
+
+Aynı kullanıcı her zaman aynı bucket → tutarlı deneyim.
+Admin paneli: `PUT /api/admin/feature-flags/{name}`
+
+### 5. Correlation ID → Baştan Sona İz
+
+Her log satırında `CorrelationId` taşınır. Hata response'unda da dönüyor:
+
+```json
+{ "status": 404, "message": "Sipariş bulunamadı", "correlationId": "a1b2c3d4" }
+```
+
+Seq'te `CorrelationId = 'a1b2c3d4'` filtresiyle o isteğe ait tüm satırlar görünür.
+
+### 6. Rate Limiting → Gateway Katmanı
+
+4 ayrı politika, controller'dan bağımsız middleware seviyesinde:
+
+| Politika | Limit | Kapsam |
+|----------|-------|--------|
+| `auth` | 10 istek/dakika | IP bazlı — brute-force koruması |
+| `orders` | 5 istek/dakika | Kullanıcı bazlı |
+| `location` | 20 istek/dakika | Kullanıcı bazlı |
+| `api` | 100 istek/dakika | IP bazlı — genel koruma |
+
+Mikroservise geçişte attribute'ları kaldırıp YARP/Kong'a taşımak yeterli.
 
 ---
 
@@ -376,7 +477,7 @@ API `1.0.0` SemVer sürümüyle derlenir; `/api/meta/version` çalışan backend
 framework sürümünü, `/health/live` process sağlığını, `/health/ready` ise
 PostgreSQL + Redis hazırlığını bildirir.
 
-“1 milyon kullanıcı” doğrulanmamış bir kapasite iddiası olarak değil, k6 ile
+"1 milyon kullanıcı" doğrulanmamış bir kapasite iddiası olarak değil, k6 ile
 tekrarlanabilir toplam 1.000.000 login iterasyonu olarak modellenmiştir.
 Smoke/load/million profilleri, p95/p99 latency ve hata oranı eşikleri
 `tests/load` altında bulunur.

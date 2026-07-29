@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Prometheus;
 using Serilog;
+using StackExchange.Redis;
 using System.Reflection;
 using ITokenService = GetirReplica.API.Services.ITokenService;
 using TokenService = GetirReplica.API.Services.TokenService;
@@ -19,7 +20,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Serilog ──────────────────────────────────────────────────────────────────
 builder.Host.UseSerilog((context, config) =>
-    config.ReadFrom.Configuration(context.Configuration));
+    config.ReadFrom.Configuration(context.Configuration)
+          .Enrich.FromLogContext()      // CorrelationId + diğer pushed properties
+          .Enrich.WithMachineName()
+          .Enrich.WithThreadId());
 
 // ── Veritabanı (PostgreSQL + PostGIS) ────────────────────────────────────────
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -68,6 +72,30 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+builder.Services.AddScoped<IFeatureFlagService, FeatureFlagService>();
+
+// ── Distributed Lock (Redis SET NX) ─────────────────────────────────────────
+// Race condition koruması: aynı kuryeye iki sipariş aynı anda atanamaz.
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddSingleton<IDistributedLockService, RedisDistributedLockService>();
+
+// ── Polly Resilience Pipelines ────────────────────────────────────────────────
+// Redis veya başka bağımlılık anlık down olursa retry + circuit breaker devreye girer.
+builder.Services.AddRedisResiliencePipeline();
+builder.Services.AddResilientDistributedCache();
+
+// ── Outbox Processor ──────────────────────────────────────────────────────────
+// Outbox event'lerini Hangfire ile periyodik işler.
+builder.Services.AddScoped<OutboxProcessor>();
+
+// ── OpenTelemetry Tracing ─────────────────────────────────────────────────────
+// Her isteğe trace-id verir; EF Core sorguları, SignalR, Hangfire'a kadar taşır.
+builder.Services.AddOpenTelemetryTracing(builder.Configuration);
+
+// ── Rate Limiting (API Gateway katmanı) ──────────────────────────────────────
+// Controller'dan bağımsız — mikroservise geçişte gateway'e taşınabilir.
+builder.Services.AddApiRateLimiting();
 
 // ── CORS (React frontend için) ────────────────────────────────────────────────
 builder.Services.AddCors(options =>
@@ -87,9 +115,28 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Startup doğrulamaları ─────────────────────────────────────────────────────
+// Secret'lar eksik/placeholder ise log uyarısı ver (uygulama yine de başlar).
+app.Configuration.ValidateRequiredSecrets(app.Logger);
+app.Configuration.ValidateJwtSecret(app.Logger);
+
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
+// Sıra önemli: CorrelationId ilk olmalı ki tüm sonraki middleware'ler ID'yi görsün.
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseSerilogRequestLogging();
+app.UseMiddleware<IdempotencyMiddleware>();
+app.UseSerilogRequestLogging(opts =>
+{
+    // Her request log satırına CorrelationId'yi ekle
+    opts.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        if (httpContext.Items.TryGetValue(
+            CorrelationIdMiddleware.CorrelationIdItemKey, out var cid))
+        {
+            diagnosticContext.Set("CorrelationId", cid?.ToString() ?? "");
+        }
+    };
+});
 
 // Prometheus HTTP metriklerini toplar.
 // Bu middleware her isteği sayar ve süresini ölçer.
@@ -116,12 +163,21 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 // ── Hangfire Dashboard (sadece development) ───────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseHangfireDashboard("/hangfire");
 }
+
+// ── Hangfire Recurring Jobs ───────────────────────────────────────────────────
+// Outbox Processor: işlenmemiş OutboxEvent'leri her 5 saniyede bir gönderir.
+// Bu sayede "DB yazıldı ama SignalR patladı" senaryosunda event kaybolmaz.
+RecurringJob.AddOrUpdate<OutboxProcessor>(
+    "outbox-processor",
+    processor => processor.ProcessPendingEventsAsync(),
+    "*/5 * * * * *"); // Her 5 saniyede bir (cron with seconds)
 
 app.MapControllers();
 app.MapHub<TrackingHub>("/hubs/tracking");
