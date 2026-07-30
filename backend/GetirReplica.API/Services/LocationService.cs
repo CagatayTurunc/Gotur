@@ -6,6 +6,7 @@ using GetirReplica.API.Models.Enums;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using StackExchange.Redis;
 using System.Text.Json;
 
 namespace GetirReplica.API.Services;
@@ -14,6 +15,7 @@ public class LocationService : ILocationService
 {
     private readonly AppDbContext _db;
     private readonly IDistributedCache _cache;
+    private readonly IConnectionMultiplexer _redis;
     private readonly IHubContext<TrackingHub> _hub;
     private readonly ILogger<LocationService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -24,12 +26,14 @@ public class LocationService : ILocationService
     public LocationService(
         AppDbContext db,
         IDistributedCache cache,
+        IConnectionMultiplexer redis,
         IHubContext<TrackingHub> hub,
         ILogger<LocationService> logger,
         IServiceScopeFactory scopeFactory)
     {
         _db = db;
         _cache = cache;
+        _redis = redis;
         _hub = hub;
         _logger = logger;
         _scopeFactory = scopeFactory;
@@ -37,16 +41,20 @@ public class LocationService : ILocationService
 
     public async Task UpdateLocationAsync(Guid courierId, double latitude, double longitude)
     {
-        // Rate limit kontrolü: 3 saniyede bir kabul et
+        // Atomik rate limit: tek Redis komutu (SET NX EX)
+        // Neden atomik? GetString → SetString arası race window:
+        // İki paralel istek aynı anda "key yok" görüp ikisi de geçebilir.
+        // SET key 1 NX EX 3 → tek komut, ya set edilir ya edilmez.
         var rateLimitKey = $"courier:{courierId}:rate";
-        var existing = await _cache.GetStringAsync(rateLimitKey);
-        if (existing != null)
-            throw new InvalidOperationException("Konum güncellemesi çok sık gönderildi. Lütfen 3 saniye bekleyin.");
+        var db = _redis.GetDatabase();
+        var acquired = await db.StringSetAsync(
+            rateLimitKey,
+            "1",
+            TimeSpan.FromSeconds(RateLimitSeconds),
+            When.NotExists);
 
-        await _cache.SetStringAsync(rateLimitKey, "1", new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(RateLimitSeconds)
-        });
+        if (!acquired)
+            throw new InvalidOperationException("Konum güncellemesi çok sık gönderildi. Lütfen 3 saniye bekleyin.");
 
         var courier = await _db.Couriers
             .Include(c => c.Orders.Where(o => o.Status == OrderStatus.Picked || o.Status == OrderStatus.Assigned))
