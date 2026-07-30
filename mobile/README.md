@@ -4,7 +4,7 @@
 
 ## Geliştirici
 
-Bu kısım **[Arkadaşın Adı]** tarafından geliştirilecektir.
+Bu kısım ** Görkem Burak Koçoğlu** tarafından geliştirilecektir.
 
 ---
 
