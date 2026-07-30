@@ -15,6 +15,7 @@ using StackExchange.Redis;
 using System.Reflection;
 using ITokenService = GetirReplica.API.Services.ITokenService;
 using TokenService = GetirReplica.API.Services.TokenService;
+using GetirReplica.API.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -96,6 +97,10 @@ builder.Services.AddOpenTelemetryTracing(builder.Configuration);
 // ── Rate Limiting (API Gateway katmanı) ──────────────────────────────────────
 // Controller'dan bağımsız — mikroservise geçişte gateway'e taşınabilir.
 builder.Services.AddApiRateLimiting();
+
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 // ── CORS (React frontend için) ────────────────────────────────────────────────
 builder.Services.AddCors(options =>

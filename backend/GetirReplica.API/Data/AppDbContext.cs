@@ -19,6 +19,10 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
 
+    public DbSet<Favorite> Favorites => Set<Favorite>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<Category> Categories => Set<Category>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -111,16 +115,87 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        // ── Favorite ──────────────────────────────────────────────
+        builder.Entity<Favorite>(e =>
+        {
+            e.HasKey(f => f.Id);
+
+            e.HasOne(f => f.User)
+                .WithMany(u => u.Favorites)
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(f => f.Restaurant)
+                .WithMany(r => r.Favorites)
+                .HasForeignKey(f => f.RestaurantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(f => new { f.UserId, f.RestaurantId })
+                .IsUnique();
+        });
+
+        // ── Review ────────────────────────────────────────────────
+        builder.Entity<Review>(e =>
+        {
+            e.HasKey(r => r.Id);
+
+            e.Property(r => r.Rating)
+                .IsRequired();
+
+            e.Property(r => r.Comment)
+                .HasMaxLength(1000);
+
+            e.HasOne(r => r.User)
+                .WithMany(u => u.Reviews)
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.Restaurant)
+                .WithMany(r => r.Reviews)
+                .HasForeignKey(r => r.RestaurantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(r => new { r.UserId, r.RestaurantId })
+                .IsUnique();
+
+            e.ToTable(t =>
+                t.HasCheckConstraint(
+                    "CK_Reviews_Rating",
+                    "\"Rating\" >= 1 AND \"Rating\" <= 5"));
+        });
+
+        // ── Category ──────────────────────────────────────────────
+        builder.Entity<Category>(e =>
+        {
+            e.HasKey(c => c.Id);
+
+            e.Property(c => c.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            e.Property(c => c.Description)
+                .HasMaxLength(500);
+
+            e.HasIndex(c => c.Name)
+                .IsUnique();
+        });
+
+        builder.Entity<MenuItem>()
+            .HasOne(m => m.CategoryEntity)
+            .WithMany(c => c.MenuItems)
+            .HasForeignKey(m => m.CategoryId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // ── OutboxEvent ──────────────────────────────────────────
         // Outbox Pattern: DB yazma + event yayınlama tutarlılığı için.
-        // ProcessedAt IS NULL olan satırlar işlenmemiş event'leri temsil eder.
         builder.Entity<OutboxEvent>(e =>
         {
             e.HasKey(o => o.Id);
             e.Property(o => o.Payload).HasColumnType("jsonb");
-            // İşlenmemiş event'leri hızlı bulmak için partial index
+
             e.HasIndex(o => o.ProcessedAt)
                 .HasFilter("\"ProcessedAt\" IS NULL");
+
             e.HasIndex(o => o.CreatedAt);
         });
 
@@ -129,10 +204,15 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
         builder.Entity<FeatureFlag>(e =>
         {
             e.HasKey(f => f.Id);
-            // Flag adı unique olmalı — aynı isimde iki flag olamaz
-            e.HasIndex(f => f.Name).IsUnique();
-            e.Property(f => f.Name).HasMaxLength(100);
-            e.Property(f => f.Description).HasMaxLength(500);
+
+            e.HasIndex(f => f.Name)
+                .IsUnique();
+
+            e.Property(f => f.Name)
+                .HasMaxLength(100);
+
+            e.Property(f => f.Description)
+                .HasMaxLength(500);
         });
     }
 }
