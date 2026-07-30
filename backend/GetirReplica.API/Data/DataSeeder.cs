@@ -2064,7 +2064,7 @@ public static class DataSeeder
                 new MenuItemDef("Revani",              "İrmikli şerbetli tatlı",                         75m, "Tatlı",  "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
                 new MenuItemDef("Ayran",               "Soğuk ayran",                                    25m, "İçecek", "https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop"),
             }
-        ),,
+        ),
 
         // ════════════════════════════════════════════════════════════════
         // İSTANBUL RESTORANLAR (10 adet)
