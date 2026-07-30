@@ -168,12 +168,17 @@ export default function RestaurantDetailPage() {
       .finally(() => setLoading(false))
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Favori durumunu yükle (sadece gerçek restoranlar, giriş yapılmışsa)
+  // Favori durumunu yükle
   useEffect(() => {
-    if (!id || id.startsWith('mock') || !authService.isLoggedIn()) return
+    if (!id || !authService.isLoggedIn()) return
+    if (id.startsWith('mock')) {
+      const saved = JSON.parse(localStorage.getItem('mockFavorites') || '[]') as string[]
+      setIsFav(saved.includes(id))
+      return
+    }
     favoriteService.isFavorite(id)
       .then(setIsFav)
-      .catch(() => {}) // hata sessizce geçsin
+      .catch(() => {})
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Yorumları yükle (sadece gerçek restoranlar)
@@ -182,7 +187,6 @@ export default function RestaurantDetailPage() {
     reviewService.getByRestaurant(id)
       .then(setReviews)
       .catch(() => {})
-    // Giriş yapılmışsa yorum yapma hakkını kontrol et
     if (authService.isLoggedIn()) {
       reviewService.canReview(id)
         .then(setCanReview)
@@ -193,7 +197,13 @@ export default function RestaurantDetailPage() {
   // Favori toggle
   const toggleFav = async () => {
     if (!authService.isLoggedIn()) { navigate('/', { state: { openLogin: true } }); return }
-    if (id?.startsWith('mock')) { setIsFav(v => !v); return } // mock için sadece UI
+    if (id?.startsWith('mock')) {
+      const saved = JSON.parse(localStorage.getItem('mockFavorites') || '[]') as string[]
+      const next = isFav ? saved.filter((x: string) => x !== id) : [...saved, id]
+      localStorage.setItem('mockFavorites', JSON.stringify(next))
+      setIsFav(!isFav)
+      return
+    }
     setFavLoading(true)
     try {
       if (isFav) {

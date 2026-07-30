@@ -131,6 +131,8 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER }}/gotur-frontend:latest
             ghcr.io/${{ env.OWNER }}/gotur-frontend:${{ github.sha }}
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
