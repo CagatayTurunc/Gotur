@@ -22,6 +22,17 @@ public class ReviewService : IReviewService
         if (!restaurantExists)
             throw new KeyNotFoundException("Restoran bulunamadı.");
 
+        // Yemeksepeti mantığı: sadece teslim edilmiş siparişi olan kullanıcı yorum yapabilir
+        var hasDeliveredOrder = await _context.Orders
+            .AnyAsync(o =>
+                o.CustomerId == userId &&
+                o.RestaurantId == dto.RestaurantId &&
+                o.Status == Models.Enums.OrderStatus.Delivered);
+
+        if (!hasDeliveredOrder)
+            throw new InvalidOperationException(
+                "Bu restorana yorum yapabilmek için önce bir siparişinizin teslim edilmiş olması gerekiyor.");
+
         var reviewExists = await _context.Reviews
             .AnyAsync(r =>
                 r.UserId == userId &&
@@ -115,5 +126,25 @@ public class ReviewService : IReviewService
                 r.CreatedAt
             ))
             .ToListAsync();
+    }
+
+    public async Task<bool> CanReviewAsync(Guid restaurantId, Guid userId)
+    {
+        // Teslim edilmiş sipariş var mı?
+        var hasDeliveredOrder = await _context.Orders
+            .AnyAsync(o =>
+                o.CustomerId == userId &&
+                o.RestaurantId == restaurantId &&
+                o.Status == Models.Enums.OrderStatus.Delivered);
+
+        if (!hasDeliveredOrder) return false;
+
+        // Zaten yorum yapmış mı?
+        var alreadyReviewed = await _context.Reviews
+            .AnyAsync(r =>
+                r.UserId == userId &&
+                r.RestaurantId == restaurantId);
+
+        return !alreadyReviewed;
     }
 }

@@ -127,7 +127,8 @@ export default function RestaurantDetailPage() {
 
   // ── Yorumlar ──────────────────────────────────────────────────────────────────
   const [reviews,       setReviews]       = useState<ReviewDto[]>([])
-  const [reviewsTab,    setReviewsTab]    = useState(false)   // menü / yorumlar toggle
+  const [reviewsTab,    setReviewsTab]    = useState(false)
+  const [canReview,     setCanReview]     = useState(false)
   const [reviewRating,  setReviewRating]  = useState(5)
   const [reviewComment, setReviewComment] = useState('')
   const [reviewLoading, setReviewLoading] = useState(false)
@@ -181,6 +182,12 @@ export default function RestaurantDetailPage() {
     reviewService.getByRestaurant(id)
       .then(setReviews)
       .catch(() => {})
+    // Giriş yapılmışsa yorum yapma hakkını kontrol et
+    if (authService.isLoggedIn()) {
+      reviewService.canReview(id)
+        .then(setCanReview)
+        .catch(() => setCanReview(false))
+    }
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Favori toggle
@@ -215,6 +222,7 @@ export default function RestaurantDetailPage() {
         await reviewService.add({ restaurantId: id, rating: reviewRating, comment: reviewComment })
         const updated = await reviewService.getByRestaurant(id)
         setReviews(updated)
+        setCanReview(false) // yorum yapıldı, form gizle
       }
       setReviewComment('')
       setReviewRating(5)
@@ -623,8 +631,27 @@ export default function RestaurantDetailPage() {
                   </div>
                 )}
 
-                {/* Yorum formu — sadece giriş yapılmış ve gerçek restoran */}
-                {authService.isLoggedIn() && !id?.startsWith('mock') && (
+                {/* Yorum yapma hakkı yoksa bilgi mesajı */}
+                {authService.isLoggedIn() && !id?.startsWith('mock') && !canReview && !editingReview && (
+                  <div className="rounded-xl p-4 border flex items-center gap-3"
+                    style={{ backgroundColor: 'var(--bg-muted)', borderColor: 'var(--border)' }}>
+                    <span className="material-symbols-outlined text-[22px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>info</span>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Bu restorana yorum yapabilmek için önce bir siparişinizin teslim edilmiş olması gerekiyor.
+                    </p>
+                  </div>
+                )}
+                {!authService.isLoggedIn() && !id?.startsWith('mock') && (
+                  <div className="rounded-xl p-4 border flex items-center gap-3"
+                    style={{ backgroundColor: 'var(--bg-muted)', borderColor: 'var(--border)' }}>
+                    <span className="material-symbols-outlined text-[22px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>lock</span>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Yorum yapmak için <button onClick={() => navigate('/', { state: { openLogin: true } })} className="underline font-semibold" style={{ color: 'var(--accent)' }}>giriş yapın</button>.
+                    </p>
+                  </div>
+                )}
+                {/* Yorum formu — sadece teslim edilmiş siparişi olan ve henüz yorum yapmamış kullanıcı */}
+                {authService.isLoggedIn() && !id?.startsWith('mock') && (canReview || editingReview) && (
                   <form onSubmit={handleReviewSubmit} className="rounded-xl p-4 border flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
                     <p className="text-sm font-bold" style={primaryStyle}>
                       {editingReview ? 'Yorumu Düzenle' : 'Yorum Yaz'}

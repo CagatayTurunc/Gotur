@@ -27,6 +27,19 @@ public class ReviewsController : ControllerBase
         return Ok(reviews);
     }
 
+    /// <summary>
+    /// Giriş yapmış kullanıcının bu restorana yorum yapıp yapamayacağını döner.
+    /// Kural: teslim edilmiş sipariş gerekli + daha önce yorum yapmamış olmalı.
+    /// </summary>
+    [Authorize]
+    [HttpGet("restaurant/{restaurantId:guid}/can-review")]
+    public async Task<IActionResult> CanReview(Guid restaurantId)
+    {
+        var userId = GetUserId();
+        var canReview = await _reviewService.CanReviewAsync(restaurantId, userId);
+        return Ok(new { canReview });
+    }
+
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> AddReview(

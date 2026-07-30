@@ -11,4 +11,10 @@ public interface IReviewService
     Task DeleteReviewAsync(Guid reviewId, Guid userId);
 
     Task<List<ReviewDto>> GetRestaurantReviewsAsync(Guid restaurantId);
+
+    /// <summary>
+    /// Kullanıcının bu restorana yorum yapıp yapamayacağını döner.
+    /// Kural: teslim edilmiş sipariş gerekli + henüz yorum yapmamış olmalı.
+    /// </summary>
+    Task<bool> CanReviewAsync(Guid restaurantId, Guid userId);
 }
