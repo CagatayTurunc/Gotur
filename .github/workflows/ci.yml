@@ -211,3 +211,29 @@ jobs:
       # çıktı üretir. Hata yoksa stdout'a YAML döker, pipeline yeşil kalır.
       - name: Render Kustomize manifests
         run: kubectl kustomize infra/k8s
+
+  # ── 6. Otomatik Deploy ────────────────────────────────────────────────────
+  # Neden: Docker image push yeşil olduktan sonra sunucuya otomatik deploy.
+  # Akış: SSH bağlan → git pull → kubectl rollout restart (yeni image çeker)
+  # Sadece main branch push'unda çalışır — PR'larda deploy yapılmaz.
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: SSH → git pull → kubectl rollout restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ~/Gotur
+            git pull origin main
+            kubectl rollout restart deployment/gotur-api
+            kubectl rollout restart deployment/gotur-frontend
+            kubectl rollout status deployment/gotur-api --timeout=120s
+            kubectl rollout status deployment/gotur-frontend --timeout=120s
