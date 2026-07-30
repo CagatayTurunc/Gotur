@@ -10,10 +10,10 @@ import type { Restaurant } from '../types'
 import { useAddress } from '../context/AddressContext'
 
 const CAMPAIGNS = [
-  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJ-O91j0bsm7n7YnWinyNPttecnXGULxJaOvfGSET7O4wr2y9BQ4hr_fyf1ZxX8jVvLVDZfZVO_GQJ91ECGTj_T76AGy9GEMagESyX-JEk16edmdwFSbBjD9KJ2eDJnjFxAYiFIXKyDYxr6BsE7oyp5bAcLxkFAThvh6K54SLwkZq96GGLh-U4MOXae4H-4KmfhuWITxj6FJOyfpd5Vf-NzLhI3XjIraGw1fBmRzVuuYwr-1WNz0JktADFmuz26rvc-xLFFTMKPrQ' },
-  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBmxHlIH_TQ4dGLa6cEi6SVmUHy0A6a_232Mb4yNG32qy73hnx_mE0W7IhXbz6ubMf92MXScDZCtQ_Gt2k2sfQWcnUJuWEkE_r3fpCfMSt1TGI6u-I5arEUQTYzjLF0879uITt-q-uMa6sii29U1P29ejfbM3fQjUm9A-wRfDKwGtBSmZWzrXVzztrH9DLNjPvaWcFiZZghyZT90LcYPvDrdis-31lGNIiehrDC0-Aik7sF6_Vkt5Y2tn46oULMSkKgNUVKnIsrsJw' },
-  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCpBOMa05w2MDhbOZTxWuSSDbrR0ZK0joiTUXX0bP8eKrk9egHNcLRkjGsrDj6c6Ppq663R7-GMRuZX5CntDJen_ayENzG29CXaFjLboPA_Z8CtbnpWkm3AD3FDX3-76arRpcV0JjzQR0fPpJyD5zkE9IDToi3RXcQ12a4PNCMMCq4iYx1n6sfKG4tKZvH23czGqESV3jKoltZJ9qz3ZM2fdCrpQAZpTR9lyF5ovCRsO7sHUI0xzon0-5HxnuloK8SVTE8X2bo0c-o' },
-  { src: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBKdY1yBHICNgMLat9_ODvQfjdJnMtJ71HgoUzLpy81kvhrQF4NnCmhooileh4XUCeiAtLGFD5Mc_8fAOLJytROiREqqlUQuKt7yUiH1DRx9vGkFwW_buDfufPRxmm0PRWsmXnnwXjua9xmu2sM90HVABf4QpIisY1drwlFJPc_dXzwFa8olSS2YN0-Ra5J-p_mbpuriDD6_HHq8jF_MLu2bFKirciCK-AQ7yHQiH52rQhp5KW1oWujA5z-Zatb1sRnUB_bFig0--g' },
+  { src: '/campaigns/campaign_burger.png',   label: 'Burger Kampanyası' },
+  { src: '/campaigns/campaign_grocery.png',  label: 'Market İndirimi' },
+  { src: '/campaigns/campaign_pizza.png',    label: 'Pizza Fırsatı' },
+  { src: '/campaigns/campaign_delivery.png', label: 'Hızlı Teslimat' },
 ]
 
 // Mock restoranlar — Etimesgut/Ankara gerçek lokantaları
@@ -72,6 +72,7 @@ export default function HomePage() {
   const [userMenu,    setUserMenu]    = useState(false)
   const [activeOrder, setActiveOrder] = useState<{ id: string; status: string; restaurantName?: string } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const campaignRef = useRef<HTMLDivElement>(null)
 
   // Aktif sipariş kontrolü — kullanıcı giriş yapmışsa veya sayfaya her gelinişte
   useEffect(() => {
@@ -124,6 +125,21 @@ export default function HomePage() {
     if (userMenu) document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [userMenu])
+
+  // Kampanya otomatik kaydırma — 3 saniyede bir sağa kayar, sona gelince başa döner
+  useEffect(() => {
+    const el = campaignRef.current
+    if (!el) return
+    const cardWidth = 340 // min-w değeriyle uyumlu
+    const gap = 16
+    let idx = 0
+    const total = CAMPAIGNS.length
+    const timer = setInterval(() => {
+      idx = (idx + 1) % total
+      el.scrollTo({ left: idx * (cardWidth + gap), behavior: 'smooth' })
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
 
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode)
@@ -411,18 +427,18 @@ export default function HomePage() {
 
         {/* Al Götür / Market — Yakında sayfası */}
         {activeTab !== 'restaurants' && (
-          <div className="col-span-1 md:col-span-12 flex flex-col items-center justify-center py-24 gap-6 text-center">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
-              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <span className="material-symbols-outlined text-[42px]" style={{ color: 'var(--accent)' }}>
+          <div className="col-span-1 md:col-span-12 min-h-[60vh] flex flex-col items-center justify-center py-20 gap-5 text-center">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: 'var(--bg-card)', border: '1.5px solid var(--border)' }}>
+              <span className="material-symbols-outlined text-[36px]" style={{ color: 'var(--accent)' }}>
                 {activeTab === 'pickup' ? 'directions_walk' : 'shopping_cart'}
               </span>
             </div>
-            <div>
-              <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
+            <div className="flex flex-col gap-2 max-w-md">
+              <h2 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
                 {activeTab === 'pickup' ? 'Al Götür' : 'Market'}
               </h2>
-              <p className="text-base max-w-sm" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                 {activeTab === 'pickup'
                   ? 'Siparişini hazır olunca gel, sıra beklemeden al. Bu özellik yakında burada olacak.'
                   : 'Temel ihtiyaçlardan taze ürünlere, kapına kadar market alışverişi. Çok yakında.'}
@@ -434,7 +450,7 @@ export default function HomePage() {
             </span>
             <button
               onClick={() => setActiveTab('restaurants')}
-              className="mt-2 text-sm font-semibold px-6 py-2.5 rounded-full text-white transition-opacity hover:opacity-80"
+              className="text-sm font-semibold px-6 py-2.5 rounded-full text-white transition-opacity hover:opacity-80"
               style={{ backgroundColor: 'var(--accent)' }}>
               Restoranlara Dön
             </button>
@@ -537,10 +553,20 @@ export default function HomePage() {
 
           <section>
             <h2 className="text-xl font-black mb-4" style={{ color: 'var(--text-primary)' }}>Kampanyalar</h2>
-            <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+            <div
+              ref={campaignRef}
+              className="flex gap-4 pb-2 overflow-x-auto"
+              style={{ scrollbarWidth: 'none', scrollSnapType: 'x mandatory' }}>
               {CAMPAIGNS.map((c, i) => (
-                <div key={i} className="min-w-[280px] md:min-w-[320px] rounded-xl overflow-hidden border group cursor-pointer flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
-                  <img className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-500" src={c.src} alt={`Kampanya ${i + 1}`} />
+                <div key={i}
+                  className="min-w-[320px] md:min-w-[340px] rounded-2xl overflow-hidden border group cursor-pointer flex-shrink-0"
+                  style={{ borderColor: 'var(--border)', scrollSnapAlign: 'start' }}>
+                  <img
+                    className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500"
+                    src={c.src}
+                    alt={c.label}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
                 </div>
               ))}
             </div>
