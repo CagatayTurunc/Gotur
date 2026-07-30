@@ -26,6 +26,27 @@ spec:
         app.kubernetes.io/part-of: gotur
     spec:
       terminationGracePeriodSeconds: 30
+      # Init container: API pod başlamadan önce migration'ları çalıştırır.
+      # Aynı image kullanır — efbundle build aşamasında /app/efbundle olarak kopyalanır.
+      # Migration başarısız olursa pod hiç başlamaz — kötü migration production'a ulaşamaz.
+      initContainers:
+        - name: db-migrate
+          image: ghcr.io/cagatayturunc/gotur-api:latest
+          imagePullPolicy: Always
+          command: ["/app/efbundle", "--connection", "$(ConnectionStrings__Default)"]
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-api-secrets
+                  key: POSTGRES_PASSWORD
+            - name: ConnectionStrings__Default
+              value: "Host=postgres;Port=5432;Database=getir_replica;Username=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD)"
       containers:
         - name: api
           image: ghcr.io/cagatayturunc/gotur-api:latest
