@@ -10,10 +10,10 @@ import type { Restaurant } from '../types'
 import { useAddress } from '../context/AddressContext'
 
 const CAMPAIGNS = [
-  { src: '/campaigns/campaign_burger.png',   label: 'Burger Kampanyası' },
-  { src: '/campaigns/campaign_grocery.png',  label: 'Market İndirimi' },
-  { src: '/campaigns/campaign_pizza.png',    label: 'Pizza Fırsatı' },
-  { src: '/campaigns/campaign_delivery.png', label: 'Hızlı Teslimat' },
+  { src: '/campaigns/campaign_burger_tr.png',   label: 'Sipariş Ver' },
+  { src: '/campaigns/campaign_grocery_tr.png',  label: 'Taze Ürünler' },
+  { src: '/campaigns/campaign_pizza_tr.png',    label: 'Büyük İndirim' },
+  { src: '/campaigns/campaign_delivery_tr.png', label: 'Hızlı Teslimat' },
 ]
 
 // Mock restoranlar — Etimesgut/Ankara gerçek lokantaları
@@ -423,39 +423,37 @@ export default function HomePage() {
       </header>
 
       {/* Main */}
-      <main className="max-w-7xl mx-auto px-4 md:px-12 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">
-
-        {/* Al Götür / Market — Yakında sayfası */}
-        {activeTab !== 'restaurants' && (
-          <div className="col-span-1 md:col-span-12 min-h-[60vh] flex flex-col items-center justify-center py-20 gap-5 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: 'var(--bg-card)', border: '1.5px solid var(--border)' }}>
-              <span className="material-symbols-outlined text-[36px]" style={{ color: 'var(--accent)' }}>
-                {activeTab === 'pickup' ? 'directions_walk' : 'shopping_cart'}
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 max-w-md">
-              <h2 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
-                {activeTab === 'pickup' ? 'Al Götür' : 'Market'}
-              </h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                {activeTab === 'pickup'
-                  ? 'Siparişini hazır olunca gel, sıra beklemeden al. Bu özellik yakında burada olacak.'
-                  : 'Temel ihtiyaçlardan taze ürünlere, kapına kadar market alışverişi. Çok yakında.'}
-              </p>
-            </div>
-            <span className="text-xs font-semibold px-4 py-1.5 rounded-full border"
-              style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', backgroundColor: 'var(--bg-muted)' }}>
-              Yakında
+      {activeTab !== 'restaurants' ? (
+        <div className="max-w-7xl mx-auto px-4 md:px-12 min-h-[65vh] flex flex-col items-center justify-center gap-6 text-center py-16">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1.5px solid var(--border)' }}>
+            <span className="material-symbols-outlined text-[40px]" style={{ color: 'var(--accent)' }}>
+              {activeTab === 'pickup' ? 'directions_walk' : 'shopping_cart'}
             </span>
-            <button
-              onClick={() => setActiveTab('restaurants')}
-              className="text-sm font-semibold px-6 py-2.5 rounded-full text-white transition-opacity hover:opacity-80"
-              style={{ backgroundColor: 'var(--accent)' }}>
-              Restoranlara Dön
-            </button>
           </div>
-        )}
+          <div className="flex flex-col gap-3 max-w-sm">
+            <h2 className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
+              {activeTab === 'pickup' ? 'Al Götür' : 'Market'}
+            </h2>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              {activeTab === 'pickup'
+                ? 'Siparişini hazır olunca gel, sıra beklemeden al. Bu özellik yakında burada olacak.'
+                : 'Temel ihtiyaçlardan taze ürünlere, kapına kadar market alışverişi. Çok yakında.'}
+            </p>
+          </div>
+          <span className="text-xs font-semibold px-5 py-1.5 rounded-full border"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', backgroundColor: 'var(--bg-muted)' }}>
+            Yakında
+          </span>
+          <button
+            onClick={() => setActiveTab('restaurants')}
+            className="text-sm font-semibold px-8 py-3 rounded-full text-white transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--accent)' }}>
+            Restoranlara Dön
+          </button>
+        </div>
+      ) : (
+      <main className="max-w-7xl mx-auto px-4 md:px-12 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">
 
         {/* Sol Sidebar */}
         {activeTab === 'restaurants' && <aside className="hidden md:block md:col-span-3 space-y-5 sticky top-[110px] h-[calc(100vh-110px)] overflow-y-auto pr-2" style={{ scrollbarWidth: 'none' }}>
@@ -666,6 +664,7 @@ export default function HomePage() {
           </section>
         </div>}
       </main>
+      )}
 
       {/* Mobil Alt Nav */}
       <nav className="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center border-t lg:hidden z-50 rounded-t-xl" style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--border)' }}>
