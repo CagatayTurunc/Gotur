@@ -408,8 +408,41 @@ export default function HomePage() {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 md:px-12 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+
+        {/* Al Götür / Market — Yakında sayfası */}
+        {activeTab !== 'restaurants' && (
+          <div className="col-span-1 md:col-span-12 flex flex-col items-center justify-center py-24 gap-6 text-center">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
+              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <span className="material-symbols-outlined text-[42px]" style={{ color: 'var(--accent)' }}>
+                {activeTab === 'pickup' ? 'directions_walk' : 'shopping_cart'}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-black mb-2" style={{ color: 'var(--text-primary)' }}>
+                {activeTab === 'pickup' ? 'Al Götür' : 'Market'}
+              </h2>
+              <p className="text-base max-w-sm" style={{ color: 'var(--text-muted)' }}>
+                {activeTab === 'pickup'
+                  ? 'Siparişini hazır olunca gel, sıra beklemeden al. Bu özellik yakında burada olacak.'
+                  : 'Temel ihtiyaçlardan taze ürünlere, kapına kadar market alışverişi. Çok yakında.'}
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-4 py-1.5 rounded-full border"
+              style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', backgroundColor: 'var(--bg-muted)' }}>
+              Yakında
+            </span>
+            <button
+              onClick={() => setActiveTab('restaurants')}
+              className="mt-2 text-sm font-semibold px-6 py-2.5 rounded-full text-white transition-opacity hover:opacity-80"
+              style={{ backgroundColor: 'var(--accent)' }}>
+              Restoranlara Dön
+            </button>
+          </div>
+        )}
+
         {/* Sol Sidebar */}
-        <aside className="hidden md:block md:col-span-3 space-y-5 sticky top-[110px] h-[calc(100vh-110px)] overflow-y-auto pr-2" style={{ scrollbarWidth: 'none' }}>
+        {activeTab === 'restaurants' && <aside className="hidden md:block md:col-span-3 space-y-5 sticky top-[110px] h-[calc(100vh-110px)] overflow-y-auto pr-2" style={{ scrollbarWidth: 'none' }}>
           {promoCard && (
             <div className="rounded-xl p-4 border relative" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
               <button onClick={() => setPromoCard(false)} className="absolute top-2 right-2 opacity-50 hover:opacity-100 transition-opacity" style={{ color: 'var(--text-secondary)' }}>
@@ -452,10 +485,10 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-        </aside>
+        </aside>}
 
         {/* Ana İçerik */}
-        <div className="col-span-1 md:col-span-9 space-y-8">
+        {activeTab === 'restaurants' && <div className="col-span-1 md:col-span-9 space-y-8">
           {/* Uygulama İndirme Banner */}
           <section className="rounded-2xl overflow-hidden relative flex items-center justify-between px-6 md:px-10 py-6 gap-4" style={{ backgroundColor: '#fde8e8', minHeight: '140px' }}>
             {/* Sol: QR + Metin + Butonlar */}
@@ -605,7 +638,7 @@ export default function HomePage() {
               })}
             </div>
           </section>
-        </div>
+        </div>}
       </main>
 
       {/* Mobil Alt Nav */}
