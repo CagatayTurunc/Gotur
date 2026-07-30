@@ -73,5 +73,20 @@ services:
     depends_on:
       - api
 
+  # ── Jaeger — Distributed Tracing UI (sadece local dev) ───────────────────
+  # OpenTelemetry OTLP → Jaeger → trace waterfall görünümü
+  # http://localhost:16686 adresinden erişilir
+  # Sunucuya deploy edilmez — docker-compose.monitoring.yml'e taşınabilir
+  jaeger:
+    image: jaegertracing/all-in-one:1.58
+    container_name: gotur-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC (API buraya push eder)
+    profiles:
+      - tracing  # sadece: docker compose --profile tracing up
+
 volumes:
   gotur_pgdata:

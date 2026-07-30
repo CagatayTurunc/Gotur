@@ -1,4 +1,5 @@
 using GetirReplica.API.Data;
+using GetirReplica.API.Extensions;
 using GetirReplica.API.Hubs;
 using GetirReplica.API.Models.DTOs.Orders;
 using GetirReplica.API.Models.Entities;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace GetirReplica.API.Services;
@@ -41,6 +43,14 @@ public class LocationService : ILocationService
 
     public async Task UpdateLocationAsync(Guid courierId, double latitude, double longitude)
     {
+        // OpenTelemetry span: konum güncellemesi izlenir
+        // Trace waterfall: "PUT /api/couriers/location" → "LocationService.Update" → Redis SET → EF INSERT
+        using var activity = OpenTelemetryExtensions.ActivitySource
+            .StartActivity("LocationService.UpdateLocation", ActivityKind.Internal);
+        activity?.SetTag("courier.id", courierId.ToString());
+        activity?.SetTag("location.lat", latitude);
+        activity?.SetTag("location.lng", longitude);
+
         // Atomik rate limit: tek Redis komutu (SET NX EX)
         // Neden atomik? GetString → SetString arası race window:
         // İki paralel istek aynı anda "key yok" görüp ikisi de geçebilir.

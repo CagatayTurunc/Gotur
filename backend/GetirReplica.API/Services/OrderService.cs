@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.Json;
 using GetirReplica.API.Data;
+using GetirReplica.API.Extensions;
 using GetirReplica.API.Hubs;
 using GetirReplica.API.Models.DTOs.Orders;
 using GetirReplica.API.Models.Entities;
@@ -36,6 +38,13 @@ public class OrderService : IOrderService
 
     public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto dto, Guid customerId)
     {
+        // OpenTelemetry span: sipariş oluşturma izlenir
+        // Trace waterfall'da "POST /api/orders" → "OrderService.Create" → "EF Core INSERT" görünür
+        using var activity = OpenTelemetryExtensions.ActivitySource
+            .StartActivity("OrderService.Create", ActivityKind.Internal);
+        activity?.SetTag("customer.id", customerId.ToString());
+        activity?.SetTag("restaurant.id", dto.RestaurantId.ToString());
+
         // Token geçerli ama kullanıcı DB'de yok (örn. DB sıfırlandı, oturum eskidi)
         var customerExists = await _db.Users.AnyAsync(u => u.Id == customerId);
         if (!customerExists)
