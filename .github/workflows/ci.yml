@@ -231,7 +231,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd ~/Gotur
+            cd ~/gotur
             git pull origin main
             kubectl rollout restart deployment/gotur-api
             kubectl rollout restart deployment/gotur-frontend
