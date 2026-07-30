@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { restaurantService, type MenuItem } from '../services/restaurantService'
+import { favoriteService } from '../services/favoriteService'
+import { reviewService } from '../services/reviewService'
 import ThemeToggle from '../components/ThemeToggle'
 import api from '../services/api'
-import type { Restaurant } from '../types'
+import type { Restaurant, ReviewDto } from '../types'
 import { useAddress } from '../context/AddressContext'
 
 interface CartItem { id: string; name: string; price: number; qty: number; imageUrl?: string }
@@ -99,12 +101,6 @@ const MOCK_MENUS: Record<string, MenuItem[]> = {
   ],
 }
 
-const REVIEWS = [
-  { stars: 4.5, text: 'Yemekler inanılmaz lezzetliydi. Teslimat da oldukça hızlıydı, kesinlikle tekrar sipariş vereceğim.', badge: 'Deneyimli Yorumcu', date: '2 hafta önce' },
-  { stars: 5,   text: 'Her şey mükemmeldi! Sıcak, taze ve çok lezzetli. Teşekkürler.', badge: 'Gurme', date: '1 ay önce' },
-  { stars: 4,   text: 'Porsiyonlar doyurucu ve fiyatlar makul. Genel olarak çok iyi bir deneyimdi.', badge: 'Yeni Üye', date: '2 ay önce' },
-]
-
 export default function RestaurantDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -126,7 +122,17 @@ export default function RestaurantDetailPage() {
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
 
   // ── Favori ───────────────────────────────────────────────────────────────────
-  const [isFav, setIsFav] = useState(false)
+  const [isFav,      setIsFav]      = useState(false)
+  const [favLoading, setFavLoading] = useState(false)
+
+  // ── Yorumlar ──────────────────────────────────────────────────────────────────
+  const [reviews,       setReviews]       = useState<ReviewDto[]>([])
+  const [reviewsTab,    setReviewsTab]    = useState(false)   // menü / yorumlar toggle
+  const [reviewRating,  setReviewRating]  = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewError,   setReviewError]   = useState('')
+  const [editingReview, setEditingReview] = useState<ReviewDto | null>(null)
 
   // ── API çağrıları ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,6 +166,74 @@ export default function RestaurantDetailPage() {
     }).catch(console.error)
       .finally(() => setLoading(false))
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Favori durumunu yükle (sadece gerçek restoranlar, giriş yapılmışsa)
+  useEffect(() => {
+    if (!id || id.startsWith('mock') || !authService.isLoggedIn()) return
+    favoriteService.isFavorite(id)
+      .then(setIsFav)
+      .catch(() => {}) // hata sessizce geçsin
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Yorumları yükle (sadece gerçek restoranlar)
+  useEffect(() => {
+    if (!id || id.startsWith('mock')) return
+    reviewService.getByRestaurant(id)
+      .then(setReviews)
+      .catch(() => {})
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Favori toggle
+  const toggleFav = async () => {
+    if (!authService.isLoggedIn()) { navigate('/', { state: { openLogin: true } }); return }
+    if (id?.startsWith('mock')) { setIsFav(v => !v); return } // mock için sadece UI
+    setFavLoading(true)
+    try {
+      if (isFav) {
+        await favoriteService.remove(id!)
+        setIsFav(false)
+      } else {
+        await favoriteService.add(id!)
+        setIsFav(true)
+      }
+    } catch { /* sessiz */ }
+    finally { setFavLoading(false) }
+  }
+
+  // Yorum gönder
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id || id.startsWith('mock')) return
+    setReviewLoading(true)
+    setReviewError('')
+    try {
+      if (editingReview) {
+        await reviewService.update(editingReview.id, { restaurantId: id, rating: reviewRating, comment: reviewComment })
+        setReviews(prev => prev.map(r => r.id === editingReview.id ? { ...r, rating: reviewRating, comment: reviewComment } : r))
+        setEditingReview(null)
+      } else {
+        await reviewService.add({ restaurantId: id, rating: reviewRating, comment: reviewComment })
+        const updated = await reviewService.getByRestaurant(id)
+        setReviews(updated)
+      }
+      setReviewComment('')
+      setReviewRating(5)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setReviewError(e?.response?.data?.message ?? 'Yorum gönderilemedi.')
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  // Yorum sil
+  const handleReviewDelete = async (reviewId: string) => {
+    if (!window.confirm('Yorumu silmek istiyor musunuz?')) return
+    try {
+      await reviewService.remove(reviewId)
+      setReviews(prev => prev.filter(r => r.id !== reviewId))
+    } catch { /* sessiz */ }
+  }
 
   // ── Kategori hesapla ──────────────────────────────────────────────────────────
   const categories = Array.from(new Set(menuItems.map(m => m.category ?? 'Diğer')))
@@ -331,8 +405,9 @@ export default function RestaurantDetailPage() {
                 <div className="flex items-start justify-between w-full">
                   <h1 className="text-2xl md:text-3xl font-black" style={primaryStyle}>{restaurant?.name ?? 'Restoran'}</h1>
                   <button
-                    onClick={() => setIsFav(v => !v)}
-                    className="flex items-center gap-1.5 border rounded-full px-3 py-1.5 hover:opacity-70 transition-opacity text-sm font-semibold shrink-0"
+                    onClick={toggleFav}
+                    disabled={favLoading}
+                    className="flex items-center gap-1.5 border rounded-full px-3 py-1.5 hover:opacity-70 transition-opacity text-sm font-semibold shrink-0 disabled:opacity-50"
                     style={{ ...secondaryStyle, borderColor: 'var(--border)' }}>
                     <span className="material-symbols-outlined text-[16px]" style={isFav ? { ...accentStyle, fontVariationSettings: "'FILL' 1" } : {}}>
                       {isFav ? 'favorite' : 'favorite_border'}
@@ -511,29 +586,136 @@ export default function RestaurantDetailPage() {
 
           {/* Yorumlar */}
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black" style={primaryStyle}>Müşteri Yorumları</h2>
-              <div className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[20px]" style={{ ...accentStyle, fontVariationSettings: "'FILL' 1" }}>star</span>
-                <span className="font-bold" style={primaryStyle}>4.5</span>
-                <span className="text-sm" style={secondaryStyle}>/ 5 (1000+)</span>
+            {/* Menü / Yorumlar Tab */}
+            <div className="flex items-center gap-3 mb-5">
+              <button
+                onClick={() => setReviewsTab(false)}
+                className="pb-1.5 text-sm font-bold border-b-2 transition-all"
+                style={!reviewsTab ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : { borderColor: 'transparent', color: 'var(--text-muted)' }}>
+                Menü
+              </button>
+              <button
+                onClick={() => setReviewsTab(true)}
+                className="pb-1.5 text-sm font-bold border-b-2 transition-all flex items-center gap-1.5"
+                style={reviewsTab ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : { borderColor: 'transparent', color: 'var(--text-muted)' }}>
+                Yorumlar
+                {reviews.length > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
+                    style={{ backgroundColor: 'var(--accent)', color: '#fff' }}>
+                    {reviews.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {reviewsTab && (
+              <div className="flex flex-col gap-5">
+                {/* Ortalama puan */}
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-3 rounded-xl p-4 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                    <span className="text-4xl font-black" style={accentStyle}>
+                      {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
+                    </span>
+                    <div>
+                      <StarRow rating={reviews.reduce((s, r) => s + r.rating, 0) / reviews.length} />
+                      <p className="text-xs mt-1" style={secondaryStyle}>{reviews.length} değerlendirme</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Yorum formu — sadece giriş yapılmış ve gerçek restoran */}
+                {authService.isLoggedIn() && !id?.startsWith('mock') && (
+                  <form onSubmit={handleReviewSubmit} className="rounded-xl p-4 border flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-bold" style={primaryStyle}>
+                      {editingReview ? 'Yorumu Düzenle' : 'Yorum Yaz'}
+                    </p>
+                    {/* Yıldız seçici */}
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map(s => (
+                        <button key={s} type="button" onClick={() => setReviewRating(s)}>
+                          <span className="material-symbols-outlined text-[28px] transition-all"
+                            style={{ color: s <= reviewRating ? 'var(--accent)' : 'var(--text-muted)', fontVariationSettings: s <= reviewRating ? "'FILL' 1" : "'FILL' 0" }}>
+                            star
+                          </span>
+                        </button>
+                      ))}
+                      <span className="text-sm ml-1 font-medium" style={secondaryStyle}>{reviewRating}/5</span>
+                    </div>
+                    <textarea
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                      rows={3}
+                      placeholder="Deneyiminizi paylaşın..."
+                      className="w-full rounded-xl border px-3 py-2 text-sm resize-none outline-none focus:ring-1"
+                      style={{ backgroundColor: 'var(--bg-muted)', borderColor: 'var(--border)', color: 'var(--text-primary)', ['--tw-ring-color' as string]: 'var(--accent)' }}
+                    />
+                    {reviewError && <p className="text-xs text-red-500">{reviewError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={reviewLoading}
+                        className="px-4 py-2 rounded-full text-sm font-semibold text-white disabled:opacity-50 transition-opacity hover:opacity-80"
+                        style={{ backgroundColor: 'var(--accent)' }}>
+                        {reviewLoading ? 'Gönderiliyor...' : editingReview ? 'Güncelle' : 'Yorum Gönder'}
+                      </button>
+                      {editingReview && (
+                        <button type="button" onClick={() => { setEditingReview(null); setReviewComment(''); setReviewRating(5) }}
+                          className="px-4 py-2 rounded-full text-sm font-semibold border transition-opacity hover:opacity-70"
+                          style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                          İptal
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+
+                {/* Yorum listesi */}
+                {reviews.length === 0 ? (
+                  <div className="text-center py-10 rounded-xl border" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+                    <span className="material-symbols-outlined text-[40px] mb-2 block">rate_review</span>
+                    <p className="text-sm">Henüz yorum yok. İlk yorumu siz yapın!</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {reviews.map(r => (
+                      <div key={r.id} className="rounded-xl p-4 border flex flex-col gap-2" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                              style={{ backgroundColor: 'var(--accent)' }}>
+                              {r.userName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold" style={primaryStyle}>{r.userName}</p>
+                              <p className="text-xs" style={secondaryStyle}>{new Date(r.createdAt).toLocaleDateString('tr-TR')}</p>
+                            </div>
+                          </div>
+                          <StarRow rating={r.rating} />
+                        </div>
+                        {r.comment && <p className="text-sm" style={primaryStyle}>{r.comment}</p>}
+                        {/* Kendi yorumuysa düzenle/sil */}
+                        {authService.getUser()?.id === r.userId && (
+                          <div className="flex gap-2 mt-1">
+                            <button
+                              onClick={() => { setEditingReview(r); setReviewRating(r.rating); setReviewComment(r.comment ?? ''); setReviewsTab(true) }}
+                              className="text-xs px-2 py-1 rounded-full border hover:opacity-70 transition-opacity"
+                              style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                              Düzenle
+                            </button>
+                            <button
+                              onClick={() => handleReviewDelete(r.id)}
+                              className="text-xs px-2 py-1 rounded-full border hover:opacity-70 transition-opacity"
+                              style={{ borderColor: '#e53e3e', color: '#e53e3e' }}>
+                              Sil
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {REVIEWS.map((r, i) => (
-                <div key={i} className="min-w-[300px] max-w-[300px] rounded-xl p-4 shadow-sm border flex flex-col gap-3" style={cardStyle}>
-                  <div className="flex justify-between items-start">
-                    <StarRow rating={r.stars} />
-                    <span className="text-xs" style={secondaryStyle}>{r.date}</span>
-                  </div>
-                  <p className="text-sm line-clamp-3" style={primaryStyle}>{r.text}</p>
-                  <div className="mt-auto pt-2 border-t flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
-                    <span className="material-symbols-outlined text-[20px]" style={secondaryStyle}>account_circle</span>
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{r.badge}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            )}
           </section>
         </div>
 

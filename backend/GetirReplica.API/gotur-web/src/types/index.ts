@@ -103,3 +103,26 @@ export interface CourierAssignedEvent {
   courierId: string
   timestamp: string
 }
+
+// ── Favorites ──────────────────────────────────────────────────────────────────
+export interface FavoriteDto {
+  restaurantId: string
+  restaurantName: string
+  createdAt: string
+}
+
+// ── Reviews ────────────────────────────────────────────────────────────────────
+export interface ReviewDto {
+  id: string
+  userId: string
+  userName: string
+  rating: number
+  comment?: string
+  createdAt: string
+}
+
+export interface CreateReviewDto {
+  restaurantId: string
+  rating: number
+  comment?: string
+}
