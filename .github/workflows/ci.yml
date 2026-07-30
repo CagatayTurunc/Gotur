@@ -231,9 +231,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             cd ~/gotur
             git pull origin main
-            kubectl rollout restart deployment/gotur-api
-            kubectl rollout restart deployment/gotur-frontend
-            kubectl rollout status deployment/gotur-api --timeout=120s
-            kubectl rollout status deployment/gotur-frontend --timeout=120s
+            kubectl rollout restart deployment/gotur-api -n gotur
+            kubectl rollout restart deployment/gotur-frontend -n gotur
+            kubectl rollout status deployment/gotur-api -n gotur --timeout=120s
+            kubectl rollout status deployment/gotur-frontend -n gotur --timeout=120s
