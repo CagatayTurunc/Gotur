@@ -489,3 +489,277 @@ uygulama pod'ları ise stateless kabul edilir.
 
 Detaylı sistem mühendisliği ve ölçüm planı:
 [docs/ENGINEERING.md](./docs/ENGINEERING.md)
+
+---
+
+## Zero-Downtime Deployment Stratejileri
+
+### Mevcut: Rolling Update
+
+k3s manifestlerinde `maxUnavailable: 0, maxSurge: 1` ile yapılandırılmış.
+Yeni pod readiness probe'u geçmeden eski pod kapatılmaz — kullanıcı kesinti görmez.
+
+```
+v1 v1 v1          (başlangıç, 3 pod)
+v1 v1 v1 v2       (yeni pod eklendi — maxSurge: 1)
+v1 v1    v2       (eski bir pod kaldırıldı — maxUnavailable: 0 ile sadece ready olanlar gider)
+v1    v2 v2
+   v2 v2 v2       (tamamlandı)
+```
+
+**Trade-off:** Deploy sırasında v1 ve v2 eşzamanlı çalışır. DB şeması geriye uyumlu
+olmalı (expand/contract migration pattern).
+
+---
+
+### Sonraki Adım: Blue-Green Deployment
+
+Rolling update'in yetersiz kaldığı durum: büyük şema değişikliği veya kritik
+servis güncellemesi, geri dönüş süresi sıfır olmalı.
+
+```
+                    ┌─────────────┐
+Internet ──── LB ──►│   BLUE (v1) │ ◄── aktif trafik
+                    └─────────────┘
+                    ┌─────────────┐
+                    │  GREEN (v2) │ ◄── smoke test çalışıyor
+                    └─────────────┘
+```
+
+**Uygulama:**
+
+```yaml
+# blue-deployment.yaml — mevcut stable
+metadata:
+  name: gotur-api-blue
+  labels:
+    slot: blue
+
+# green-deployment.yaml — yeni sürüm
+metadata:
+  name: gotur-api-green
+  labels:
+    slot: green
+```
+
+```bash
+# Green hazır, smoke test geçti → trafik green'e al
+kubectl patch service gotur-api -p '{"spec":{"selector":{"slot":"green"}}}'
+
+# Sorun çıkarsa anlık geri dön (sıfır downtime)
+kubectl patch service gotur-api -p '{"spec":{"selector":{"slot":"blue"}}}'
+```
+
+**Getir ölçeğinde:** AWS ALB weighted target groups ile %100 blue → %100 green
+geçişi yapılır. Rollback: ALB kuralı güncellenir, pod değiştirilmez.
+
+---
+
+### İleri Adım: Canary Deployment
+
+Risk dağıtımı: yeni sürüm önce küçük bir kullanıcı yüzdesine açılır.
+
+```
+Trafik dağılımı:
+  %95 → stable (v1)
+  %5  → canary  (v2)
+
+Gözlem:
+  - Error rate: v1 vs v2 karşılaştır
+  - p95 latency: v1 vs v2 karşılaştır
+  - İş metrikleri: sipariş tamamlanma oranı
+
+5 dakika sonra:
+  Sorun yok → %95 canary'ye taşı
+  Sorun var → canary silinir, %100 stable kalır
+```
+
+**Traefik ile uygulama:**
+
+```yaml
+# TraefikService ile ağırlıklı yönlendirme
+apiVersion: traefik.io/v1alpha1
+kind: TraefikService
+metadata:
+  name: gotur-api-canary
+spec:
+  weighted:
+    services:
+      - name: gotur-api-stable
+        weight: 95
+      - name: gotur-api-canary
+        weight: 5
+```
+
+**Getir'de production kullanımı:** Yeni eşleştirme algoritması, önce %1 trafikte
+test edilir. Prometheus/Grafana'da hata oranı ve latency izlenir; eşik aşılmazsa
+kademeli olarak %100'e çıkarılır. Bu pattern A/B testing ile de örtüşür.
+
+---
+
+## Read Replica / CQRS-Lite
+
+### Problem
+
+Admin panel sorguları (raporlama, kullanıcı listeleme, sipariş geçmişi) ile
+sipariş yazma akışı aynı PostgreSQL instance'ını kullanıyor.
+
+Ağır bir admin raporu çalışırken `POST /api/orders` latency'si artıyor —
+okuma yükü yazma yolunu etkiliyor.
+
+### Çözüm: CQRS-Lite (Command Query Responsibility Segregation)
+
+Mimari prensibi: **yazan yol ayrı, okuyan yol ayrı.**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    COMMAND (Yazma) Yolu                      │
+│  POST /api/orders → OrderService → Primary PostgreSQL        │
+│  PUT /api/couriers/location → LocationService → Primary      │
+│  PATCH /api/orders/:id/status → OrderService → Primary      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                    Streaming Replication
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    QUERY (Okuma) Yolu                        │
+│  GET /api/admin/orders → AdminQueryService → Read Replica    │
+│  GET /api/admin/users  → AdminQueryService → Read Replica    │
+│  GET /api/restaurants  → RestaurantQuery   → Read Replica    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Uygulama
+
+```csharp
+// Program.cs — iki ayrı DbContext
+builder.Services.AddDbContext<WriteDbContext>(options =>
+    options.UseNpgsql(config["ConnectionStrings:Primary"]));
+
+builder.Services.AddDbContext<ReadDbContext>(options =>
+    options.UseNpgsql(config["ConnectionStrings:Replica"])
+           .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+```
+
+`ReadDbContext` için `NoTracking` zorunlu — change tracker devreye girmesin,
+read replica'ya yazma denemesi yapılmasın.
+
+### Kubernetes'te Read Replica
+
+```yaml
+# configmap.yaml
+data:
+  ConnectionStrings__Primary: "Host=postgres;Port=5432;..."
+  ConnectionStrings__Replica: "Host=postgres-replica;Port=5432;..."
+```
+
+MVP'de `postgres-replica` aynı primary'yi gösterir (no-op).
+Production'da AWS RDS read replica veya Patroni cluster eklenince
+sadece connection string değişir, kod değişmez.
+
+### Trade-off
+
+| | Primary | Read Replica |
+|---|---|---|
+| Veri tutarlılığı | Anlık | ~millisecond gecikme (eventual) |
+| Kullanım | Yazma + kritik okuma | Raporlama, listeleme, admin |
+| Maliyet | Yüksek IOPS | Düşük IOPS, daha ucuz instance |
+
+Getir ölçeğinde: yoğun akşam saatlerinde raporlama sorguları primary'yi
+etkilemez; sipariş yazma hattı izole kalır.
+
+---
+
+## Saga Pattern — Çok Adımlı İş Akışları
+
+### Problem
+
+Sipariş oluşturma tek bir veritabanı işlemi değil; birden fazla servisi
+etkileyen dağıtık bir akış:
+
+```
+1. Sipariş oluştur (Orders DB)
+2. Stok/kapasite kontrol et (Restaurant Service)
+3. Ödeme al (Payment Service)
+4. Kurye ata (Matching Service)
+5. Bildirim gönder (Notification Service)
+```
+
+Bu adımların herhangi birinde hata olursa ne olur?
+Adım 3 başarılı (ödeme alındı) ama adım 4 başarısız (kurye yok) →
+müşterinin parası alındı ama siparişi yok. Klasik distributed transaction sorunu.
+
+### Choreography Saga (Olay Tabanlı)
+
+Her servis bir olay yayar, diğerleri dinler. Merkezi koordinatör yok.
+
+```
+OrderCreated ──────────────────────────────────────────────►
+                │                    │                    │
+                ▼                    ▼                    ▼
+        RestaurantService    PaymentService        MatchingService
+        CapacityReserved     PaymentCompleted      CourierAssigned
+                │                    │                    │
+                ▼                    ▼                    ▼
+        CapacityReleased     PaymentRefunded       CourierReleased
+        (compensate)         (compensate)          (compensate)
+```
+
+**Avantaj:** Servisler birbirini bilmez, loosely coupled.
+**Dezavantaj:** Akışı takip etmek zor; "şu an hangi adımdayız?" görünmez.
+
+### Orchestration Saga (Koordinatör Tabanlı)
+
+Merkezi bir Saga Orchestrator tüm adımları yönetir.
+
+```
+SagaOrchestrator
+    │
+    ├─► RestaurantService.ReserveCapacity()
+    │       ✓ → devam
+    │       ✗ → END (henüz ödeme yok, geri alma kolay)
+    │
+    ├─► PaymentService.Charge()
+    │       ✓ → devam
+    │       ✗ → RestaurantService.ReleaseCapacity() [compensate]
+    │
+    ├─► MatchingService.AssignCourier()
+    │       ✓ → devam
+    │       ✗ → PaymentService.Refund() [compensate]
+    │           RestaurantService.ReleaseCapacity() [compensate]
+    │
+    └─► NotificationService.Send()
+            ✓ → Saga tamamlandı
+            ✗ → Sadece loglama (idempotent, retry yeterli)
+```
+
+**Avantaj:** Akış merkezi ve görünür; hangi adımda olduğu izlenebilir.
+**Dezavantaj:** Orchestrator single point of failure olabilir (HA ile çözülür).
+
+### Mevcut Durumla İlişki
+
+Projedeki `MatchingService` zaten choreography saga'nın basit bir versiyonunu
+uyguluyor:
+
+```csharp
+// Başarısız eşleştirme → compensating transaction
+order.Status = OrderStatus.Failed;
+courier.Status = CourierStatus.Available; // geri al
+await db.SaveChangesAsync();
+```
+
+Gerçek bir saga implementasyonu için:
+- **MassTransit Saga StateMachine** (.NET'te de-facto standart)
+- **Hangfire** ile state machine'in her adımı job olarak kayıt altında
+
+### Getir Ölçeğinde
+
+Getir'de ödeme, restorana bildirim ve kurye ataması ayrı mikroservisler.
+Bu akışı yönetmek için Saga Orchestration pattern ve RabbitMQ/Kafka üzerinden
+olay kuyruğu kullanılır. Her adım idempotent yazılır; ağ hatası durumunda
+aynı mesaj iki kez işlense de sonuç değişmez.
+
+MVP'de bu karmaşıklık tek servis içinde `try-catch + compensate` olarak
+basitleştirilmiştir. Mikroservise geçişte MassTransit StateMachine
+doğrudan migration path'i sunar.
