@@ -18,4 +18,7 @@ public class Restaurant
     public AppUser User { get; set; } = null!;
     public ICollection<Order> Orders { get; set; } = new List<Order>();
     public ICollection<MenuItem> MenuItems { get; set; } = new List<MenuItem>();
+
+    public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
+    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

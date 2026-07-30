@@ -11,4 +11,7 @@ public class AppUser : IdentityUser<Guid>
     // Soft delete
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; } = null;
+
+    public ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
+    public ICollection<Review> Reviews { get; set; } = new List<Review>();
 }

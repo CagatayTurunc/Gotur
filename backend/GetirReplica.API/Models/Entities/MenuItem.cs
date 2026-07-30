@@ -16,4 +16,9 @@ public class MenuItem
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+
+    public Guid? CategoryId { get; set; }
+
+    public Category? CategoryEntity { get; set; }
 }

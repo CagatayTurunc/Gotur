@@ -14,6 +14,7 @@ using Serilog;
 using System.Reflection;
 using ITokenService = GetirReplica.API.Services.ITokenService;
 using TokenService = GetirReplica.API.Services.TokenService;
+using GetirReplica.API.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,10 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 // ── CORS (React frontend için) ────────────────────────────────────────────────
 builder.Services.AddCors(options =>

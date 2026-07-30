@@ -3,6 +3,7 @@ using System;
 using GetirReplica.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GetirReplica.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730115831_AddReviews")]
+    partial class AddReviews
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -102,32 +105,6 @@ namespace GetirReplica.API.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("GetirReplica.API.Models.Entities.Category", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("Categories");
                 });
 
             modelBuilder.Entity("GetirReplica.API.Models.Entities.Courier", b =>
@@ -231,9 +208,6 @@ namespace GetirReplica.API.Migrations
                     b.Property<string>("Category")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -263,8 +237,6 @@ namespace GetirReplica.API.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
 
                     b.HasIndex("RestaurantId", "IsAvailable");
 
@@ -674,18 +646,11 @@ namespace GetirReplica.API.Migrations
 
             modelBuilder.Entity("GetirReplica.API.Models.Entities.MenuItem", b =>
                 {
-                    b.HasOne("GetirReplica.API.Models.Entities.Category", "CategoryEntity")
-                        .WithMany("MenuItems")
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("GetirReplica.API.Models.Entities.Restaurant", "Restaurant")
                         .WithMany("MenuItems")
                         .HasForeignKey("RestaurantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("CategoryEntity");
 
                     b.Navigation("Restaurant");
                 });
@@ -811,11 +776,6 @@ namespace GetirReplica.API.Migrations
                     b.Navigation("Favorites");
 
                     b.Navigation("Reviews");
-                });
-
-            modelBuilder.Entity("GetirReplica.API.Models.Entities.Category", b =>
-                {
-                    b.Navigation("MenuItems");
                 });
 
             modelBuilder.Entity("GetirReplica.API.Models.Entities.Courier", b =>
