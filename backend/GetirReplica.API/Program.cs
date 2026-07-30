@@ -174,10 +174,15 @@ if (app.Environment.IsDevelopment())
 // ── Hangfire Recurring Jobs ───────────────────────────────────────────────────
 // Outbox Processor: işlenmemiş OutboxEvent'leri her 5 saniyede bir gönderir.
 // Bu sayede "DB yazıldı ama SignalR patladı" senaryosunda event kaybolmaz.
-RecurringJob.AddOrUpdate<OutboxProcessor>(
-    "outbox-processor",
-    processor => processor.ProcessPendingEventsAsync(),
-    "*/5 * * * * *"); // Her 5 saniyede bir (cron with seconds)
+// app.Services üzerinden IRecurringJobManager alınır — statik API yerine DI tabanlı.
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobManager.AddOrUpdate<OutboxProcessor>(
+        "outbox-processor",
+        processor => processor.ProcessPendingEventsAsync(),
+        "*/5 * * * * *");
+}
 
 app.MapControllers();
 app.MapHub<TrackingHub>("/hubs/tracking");
