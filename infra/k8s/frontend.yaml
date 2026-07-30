@@ -25,8 +25,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: docker.io/library/gotur-frontend:latest
-          imagePullPolicy: Never
+          image: ghcr.io/cagatayturunc/gotur-frontend:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80
