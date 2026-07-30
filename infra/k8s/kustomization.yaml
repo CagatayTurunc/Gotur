@@ -1,20 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# kubectl apply -k infra/k8s → tüm kaynakları tek komutla uygular.
-# Sıra önemli: namespace önce, bağımlılıklar sonra.
 resources:
   - namespace.yaml
   - configmap.yaml
-  - postgres.yaml      # PostgreSQL — bağımlılık, API'den önce hazır olmalı
-  - redis.yaml         # Redis — bağımlılık, API'den önce hazır olmalı
-  - api.yaml           # API — readiness probe postgres+redis'i bekler
-  - frontend.yaml      # Frontend — API'ye bağımlı değil, paralel başlayabilir
-  - ingress.yaml       # Ingress — servisler hazır olduktan sonra trafik yönlendir
-  - autoscaling.yaml   # HPA + PDB — deployment'lardan sonra
+  - postgres.yaml
+  - redis.yaml
+  - api.yaml
+  - frontend.yaml
+  - middleware.yaml
+  - ingress.yaml
+  # autoscaling.yaml kapalı — t3.small için HPA RAM'i dolduruyor
 
-# Image tag yönetimi.
-# CI'da: kustomize edit set image ... ile SHA otomatik güncellenir.
+# Image'lar GHCR'dan çekilir — public olarak ayarlandı.
+# api.yaml ve frontend.yaml'da zaten ghcr.io/cagatayturunc/... yazıyor.
+# Bu images bloğu ek override yapmıyor, sadece tag yönetimi için.
 images:
   - name: ghcr.io/cagatayturunc/gotur-api
     newTag: latest

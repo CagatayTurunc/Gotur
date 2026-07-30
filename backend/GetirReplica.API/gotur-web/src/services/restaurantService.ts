@@ -40,8 +40,8 @@ export interface MenuItem {
   imageUrl?: string
   isAvailable: boolean
   sortOrder: number
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface CreateMenuItemRequest {

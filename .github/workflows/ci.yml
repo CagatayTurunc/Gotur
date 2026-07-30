@@ -96,9 +96,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # GHCR = GitHub Container Registry.
-      # Image'lar github.com/cagatayturunc adı altında saklanır.
-      # GITHUB_TOKEN otomatik oluşturulur, ek secret gerekmez.
+      # GHCR registry adı lowercase olmak zorunda.
+      # github.repository_owner büyük harf içerebilir (CagatayTurunc gibi).
+      # Bu adım lowercase versiyonu env var olarak set eder.
+      - name: Set lowercase owner
+        run: echo "OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
@@ -112,11 +115,10 @@ jobs:
         with:
           context: ./backend/GetirReplica.API
           file: ./backend/GetirReplica.API/Dockerfile
-          # PR'da push: false → sadece build hatası kontrol edilir, registry'ye gitmez
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/gotur-api:latest
-            ghcr.io/${{ github.repository_owner }}/gotur-api:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/gotur-api:latest
+            ghcr.io/${{ env.OWNER }}/gotur-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -127,8 +129,8 @@ jobs:
           file: ./backend/GetirReplica.API/gotur-web/Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/gotur-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/gotur-frontend:${{ github.sha }}
+            ghcr.io/${{ env.OWNER }}/gotur-frontend:latest
+            ghcr.io/${{ env.OWNER }}/gotur-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

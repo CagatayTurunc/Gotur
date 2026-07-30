@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using GetirReplica.API.Data;
 using GetirReplica.API.Hubs;
+using GetirReplica.API.Models.Entities;
 using GetirReplica.API.Models.Enums;
 using Hangfire;
 using Microsoft.AspNetCore.SignalR;
@@ -10,23 +12,76 @@ namespace GetirReplica.API.Services;
 public class MatchingService : IMatchingService
 {
     private readonly AppDbContext _db;
-    private readonly IHubContext<TrackingHub> _hub;
     private readonly ILogger<MatchingService> _logger;
+    private readonly IDistributedLockService _lockService;
+    private readonly IFeatureFlagService _featureFlagService;
 
     private const double MaxRadiusKm = 99999.0; // Geliştirme: mesafe sınırı yok
     private const int MaxRetries = 3;
     private const int RetryDelaySeconds = 60;
     private const int StaleLocationMinutes = 1440; // 24 saat — geliştirme ortamında stale sorununu önler
 
-    public MatchingService(AppDbContext db, IHubContext<TrackingHub> hub, ILogger<MatchingService> logger)
+    /// <summary>
+    /// Distributed lock süresi: eşleştirme işlemi bu sürede tamamlanmalı.
+    /// Değer kasıtlı olarak kısa tutuldu — lock sonrası retry zaten var.
+    /// </summary>
+    private static readonly TimeSpan LockExpiry = TimeSpan.FromSeconds(15);
+
+    public MatchingService(
+        AppDbContext db,
+        ILogger<MatchingService> logger,
+        IDistributedLockService lockService,
+        IFeatureFlagService featureFlagService)
     {
         _db = db;
-        _hub = hub;
         _logger = logger;
+        _lockService = lockService;
+        _featureFlagService = featureFlagService;
     }
 
     public async Task<bool> FindAndAssignCourierAsync(Guid orderId)
     {
+        // OpenTelemetry span: eşleştirme operasyonunu izle
+        using var activity = Extensions.OpenTelemetryExtensions.ActivitySource
+            .StartActivity("MatchingService.FindAndAssign", ActivityKind.Internal);
+        activity?.SetTag("order.id", orderId.ToString());
+
+        // Sipariş bazlı lock: aynı sipariş için iki paralel eşleştirme çalışmasın
+        var orderLockKey = $"matching:order:{orderId}";
+        var executed = false;
+        var result = false;
+
+        executed = await _lockService.ExecuteWithLockAsync(orderLockKey, LockExpiry, async () =>
+        {
+            result = await DoFindAndAssignAsync(orderId);
+        });
+
+        if (!executed)
+        {
+            _logger.LogWarning(
+                "Eşleştirme kilidi alınamadı, sipariş zaten işleniyor: {OrderId}", orderId);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Asıl eşleştirme mantığı. Sadece lock alındıktan sonra çalışır.
+    /// Kurye atama sırasında PostgreSQL optimistic concurrency kontrolü de yapılır:
+    /// SaveChanges çakışma fırlatırsa bu Busy işaretlenmiş kurye başkasına gitmiş demektir.
+    /// </summary>
+    private async Task<bool> DoFindAndAssignAsync(Guid orderId)
+    {
+        // Feature flag: yeni eşleştirme algoritması aktif mi?
+        // "new_matching_algorithm" flag'i açıksa → gelecekteki gelişmiş algoritmayı kullan.
+        // Şu an aynı koda dallanıyor (placeholder), production'da farklı mantık yazılır.
+        // Bu pattern: kodu deploy et → flag kapalı → test → flag aç → sorun olursa kapat.
+        var useNewAlgorithm = await _featureFlagService
+            .IsEnabledAsync(FeatureFlagService.Flags.NewMatchingAlgorithm);
+
+        if (useNewAlgorithm)
+            _logger.LogInformation("Eşleştirme: Yeni algoritma aktif (feature flag). OrderId={OrderId}", orderId);
+
         var order = await _db.Orders
             .Include(o => o.Restaurant)
             .FirstOrDefaultAsync(o => o.Id == orderId &&
@@ -106,14 +161,32 @@ public class MatchingService : IMatchingService
         await using var transaction = await _db.Database.BeginTransactionAsync();
         try
         {
+            // Optimistic concurrency: kurye hâlâ Available mı?
+            // Lock alınıp DB'ye ulaşana kadar başka bir işlem bu kuryeyi Busy yapmış olabilir.
+            var freshCourier = await _db.Couriers
+                .FirstOrDefaultAsync(c => c.Id == courier.Id && c.Status == CourierStatus.Available);
+
+            if (freshCourier == null)
+            {
+                _logger.LogWarning(
+                    "Eşleştirme: Kurye {CourierId} artık müsait değil (race condition önlendi). OrderId={OrderId}",
+                    courier.Id, orderId);
+                await transaction.RollbackAsync();
+                await ScheduleRetryAsync(orderId, order.RetryCount);
+                return false;
+            }
+
             order.Status = OrderStatus.Assigned;
-            order.CourierId = courier.Id;
+            order.CourierId = freshCourier.Id;
             order.AssignedAt = DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
-            courier.Status = CourierStatus.Busy;
+            freshCourier.Status = CourierStatus.Busy;
 
             await _db.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            // Kurye değişkeni güncelle (aşağıda notification için)
+            courier = freshCourier;
         }
         catch (Exception ex)
         {
@@ -122,22 +195,36 @@ public class MatchingService : IMatchingService
             throw;
         }
 
-        // SignalR bildirimleri
-        await _hub.Clients.Group($"courier:{courier.Id}").SendAsync("CourierAssigned", new
+        // Outbox pattern: CourierAssigned event'leri DB'ye yazılır, OutboxProcessor gönderir
+        _db.OutboxEvents.Add(new OutboxEvent
         {
-            orderId = order.Id,
-            courierId = courier.Id,
-            restaurantAddress = order.Restaurant.Address,
-            deliveryAddress = order.DeliveryAddress,
-            timestamp = DateTime.UtcNow
+            TargetGroup = $"courier:{courier.Id}",
+            EventType = "CourierAssigned",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                orderId = order.Id,
+                courierId = courier.Id,
+                restaurantAddress = order.Restaurant.Address,
+                deliveryAddress = order.DeliveryAddress,
+                timestamp = DateTime.UtcNow
+            }),
+            CreatedAt = DateTime.UtcNow
         });
 
-        await _hub.Clients.Group($"order:{order.Id}").SendAsync("CourierAssigned", new
+        _db.OutboxEvents.Add(new OutboxEvent
         {
-            orderId = order.Id,
-            courierId = courier.Id,
-            timestamp = DateTime.UtcNow
+            TargetGroup = $"order:{order.Id}",
+            EventType = "CourierAssigned",
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                orderId = order.Id,
+                courierId = courier.Id,
+                timestamp = DateTime.UtcNow
+            }),
+            CreatedAt = DateTime.UtcNow
         });
+
+        await _db.SaveChangesAsync();
 
         _logger.LogInformation("Sipariş {OrderId} → Kurye {CourierId} eşleştirildi. Mesafe: {Km:F1}km",
             orderId, courier.Id, nearest.Distance);
@@ -158,13 +245,21 @@ public class MatchingService : IMatchingService
             order.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            await _hub.Clients.Group($"order:{orderId}").SendAsync("OrderStatusChanged", new
+            // Outbox pattern: Failed bildirimi DB'ye yazılır
+            _db.OutboxEvents.Add(new OutboxEvent
             {
-                orderId,
-                status = "Failed",
-                reason = "Yakınında müsait kurye bulunamadı.",
-                timestamp = DateTime.UtcNow
+                TargetGroup = $"order:{orderId}",
+                EventType = "OrderStatusChanged",
+                Payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    orderId,
+                    status = "Failed",
+                    reason = "Yakınında müsait kurye bulunamadı.",
+                    timestamp = DateTime.UtcNow
+                }),
+                CreatedAt = DateTime.UtcNow
             });
+            await _db.SaveChangesAsync();
 
             _logger.LogWarning("Sipariş {OrderId} başarısız: maksimum retry aşıldı.", orderId);
             return;

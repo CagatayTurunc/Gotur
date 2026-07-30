@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using GetirReplica.API.Extensions;
 using GetirReplica.API.Models.DTOs.Orders;
 using GetirReplica.API.Models.Enums;
 using GetirReplica.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GetirReplica.API.Controllers;
 
@@ -13,6 +15,7 @@ namespace GetirReplica.API.Controllers;
 [ApiController]
 [Route("api/orders")]
 [Authorize]
+[EnableRateLimiting(RateLimitingExtensions.GeneralApiPolicy)]
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
@@ -27,6 +30,7 @@ public class OrdersController : ControllerBase
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "customer")]
+    [EnableRateLimiting(RateLimitingExtensions.OrdersPolicy)]
     [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

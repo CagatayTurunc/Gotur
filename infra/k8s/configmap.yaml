@@ -23,3 +23,11 @@ data:
   # Redis host — şifre Secret'tan inject edilir
   REDIS_HOST: redis
   REDIS_PORT: "6379"
+
+  # OpenTelemetry — Jaeger/Grafana Tempo OTLP endpoint
+  OpenTelemetry__ServiceName: GetirReplica.API
+  OpenTelemetry__OtlpEndpoint: http://jaeger:4317
+
+  # Serilog Seq sink (sadece development/staging)
+  # Production'da devre dışı bırakmak için bu satırı kaldır veya boş bırak
+  # Serilog__WriteTo__1__Args__serverUrl: http://seq:80

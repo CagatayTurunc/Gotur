@@ -1,5 +1,6 @@
 using GetirReplica.API.Models.Entities;
 using GetirReplica.API.Models.Enums;
+using GetirReplica.API.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -90,6 +91,51 @@ public static class DataSeeder
         db.ChangeTracker.Clear();
 
         await SeedAllRestaurantsAsync(userManager, db);
+        await SeedFeatureFlagsAsync(db);
+    }
+
+    private static async Task SeedFeatureFlagsAsync(AppDbContext db)
+    {
+        // Varsayılan flag'ler — sadece yoksa ekle (idempotent)
+        var flags = new[]
+        {
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.NewMatchingAlgorithm,
+                IsEnabled        = false,
+                RolloutPercentage= 0,
+                Description      = "Yeni kurye eşleştirme algoritması. Önce %10 ile test edilir."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.MaintenanceMode,
+                IsEnabled        = false,
+                RolloutPercentage= 100,
+                Description      = "Bakım modu — açıksa tüm sipariş yaratma istekelri reddedilir."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.CourierSurgePricing,
+                IsEnabled        = false,
+                RolloutPercentage= 0,
+                Description      = "Yoğun saatlerde dinamik teslimat ücreti. Pilot aşamada."
+            },
+            new FeatureFlag
+            {
+                Name             = FeatureFlagService.Flags.AdvancedOutboxRetry,
+                IsEnabled        = true,
+                RolloutPercentage= 100,
+                Description      = "Outbox processor için exponential backoff retry stratejisi."
+            },
+        };
+
+        foreach (var flag in flags)
+        {
+            if (!await db.FeatureFlags.AnyAsync(f => f.Name == flag.Name))
+                db.FeatureFlags.Add(flag);
+        }
+
+        await db.SaveChangesAsync();
     }
 
 
@@ -2019,5 +2065,316 @@ public static class DataSeeder
                 new MenuItemDef("Ayran",               "Soğuk ayran",                                    25m, "İçecek", "https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop"),
             }
         ),
+
+        // ════════════════════════════════════════════════════════════════
+        // İSTANBUL RESTORANLAR (10 adet)
+        // ════════════════════════════════════════════════════════════════
+
+        new RestaurantDef(
+            Email: "info@nusr-et.com.tr", OwnerName: "Nusret Gökçe",
+            Name: "Nusr-Et Steakhouse Etiler", Address: "Etiler, Nispetiye Cd No:87, 34337 Beşiktaş/İstanbul",
+            Lat: 41.0825, Lng: 29.0341,
+            Description: "Dünyaca ünlü et ustasından premium steak, dana carpaccio ve eşsiz lezzetler.",
+            LogoUrl: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Dallas Steak", "Kemikli dana antrikot, özel tereyağı ile", 1250m, "Steak", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Lokum", "Özel dilimlenmiş dana bonfile", 950m, "Steak", "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"),
+                new MenuItemDef("Nusr-Et Burger", "Özel kıyım et, karamelize soğan ve cheddar", 450m, "Burger", "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Havuç Dilimi Baklava", "Maraş dondurması ile servis edilir", 250m, "Tatlı", "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop"),
+                new MenuItemDef("Tulum Peynirli Salata", "Ceviz ve narlı Akdeniz yeşillikleri", 190m, "Salata", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+            }
+        ),
+        
+        new RestaurantDef(
+            Email: "iletisim@gunaydinkebap.com", OwnerName: "Cüneyt Asan",
+            Name: "Günaydın Kebap & Kasap", Address: "Suadiye, Bağdat Cd. No:399, 34740 Kadıköy/İstanbul",
+            Lat: 40.9631, Lng: 29.0837,
+            Description: "1965'ten günümüze geleneksel Türk kebabı ve ızgara çeşitleri.",
+            LogoUrl: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Adana Kebap", "Zırhta çekilmiş acılı kuzu kıyma", 380m, "Kebap", "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop"),
+                new MenuItemDef("Urfa Kebap", "Acısız geleneksel kuzu kebap", 380m, "Kebap", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kuzu Şiş", "Marine edilmiş kuzu but şiş", 450m, "Izgara", "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"),
+                new MenuItemDef("Lahmacun", "Taş fırında çıtır antep usulü lahmacun", 110m, "Pide", "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop"),
+                new MenuItemDef("Gavurdağı Salatası", "Cevizli ve nar ekşili ince kıyım salata", 150m, "Salata", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "siparis@karakoygulluoglu.com", OwnerName: "Nadir Güllü",
+            Name: "Karaköy Güllüoğlu", Address: "Kemankeş Karamustafa Paşa, Kemankeş Cd. No:67, 34425 Beyoğlu/İstanbul",
+            Lat: 41.0244, Lng: 28.9774,
+            Description: "Türkiye'nin en meşhur baklavacısı, Karaköy'de tek şube.",
+            LogoUrl: "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Fıstıklı Baklava (1 Kg)", "Bol fıstıklı, çıtır geleneksel baklava", 750m, "Tatlı", "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop"),
+                new MenuItemDef("Cevizli Baklava (1 Kg)", "Bol cevizli ev yapımı tadında", 600m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+                new MenuItemDef("Fıstıklı Şöbiyet (500g)", "Kaymak dolgulu fıstıklı baklava", 400m, "Tatlı", "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop"),
+                new MenuItemDef("Soğuk Baklava (500g)", "Sütlü ve çikolatalı hafif lezzet", 380m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "rezervasyon@balikcisabahattin.com", OwnerName: "Sabahattin Yılmaz",
+            Name: "Balıkçı Sabahattin", Address: "Cankurtaran, Seyit Hasan Sk. No:1, 34122 Fatih/İstanbul",
+            Lat: 41.0042, Lng: 28.9814,
+            Description: "1927'den beri tarihi ahşap binada en taze deniz ürünleri ve meze kültürü.",
+            LogoUrl: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Izgara Levrek", "Mevsim yeşillikleri ile taze levrek", 550m, "Balık", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kalamar Tava", "Özel tarator soslu çıtır kalamar", 320m, "Meze", "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=400&h=300&fit=crop"),
+                new MenuItemDef("Fırında Helva", "Güveçte sıcak tahin helvası", 180m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+                new MenuItemDef("Karides Güveç", "Tereyağlı ve mantarlı sıcak karides", 380m, "Meze", "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "hello@pizzeriapera.com", OwnerName: "Giovanni Rossi",
+            Name: "Pizzeria Pera", Address: "Asmalı Mescit, Gönül Sk. No:6, 34430 Beyoğlu/İstanbul",
+            Lat: 41.0289, Lng: 28.9740,
+            Description: "Odun ateşinde pişen gerçek Napoli pizzası ve el yapımı makarnalar.",
+            LogoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Margherita Verace", "Manda mozzarellası, San Marzano domates, taze fesleğen", 280m, "Pizza", "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop"),
+                new MenuItemDef("Diavola", "Acı İtalyan salamı, mozzarella ve jalapeño", 320m, "Pizza", "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop"),
+                new MenuItemDef("Fettuccine Alfredo", "Kremalı tavuklu ve parmesanlı taze makarna", 260m, "Makarna", "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=300&fit=crop"),
+                new MenuItemDef("Tiramisu", "Orijinal mascarpone peynirli İtalyan tatlısı", 150m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "info@deraliye.com", OwnerName: "Necati Yılmaz",
+            Name: "Deraliye Restaurant", Address: "Sultanahmet, Ticarethane Sk. No:10, 34122 Fatih/İstanbul",
+            Lat: 41.0083, Lng: 28.9772,
+            Description: "Sultanların menüsünden ilham alan, seçkin Osmanlı Saray mutfağı.",
+            LogoUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Mutancana", "Kuzu eti, kayısı, incir ve badem ile saray yemeği", 450m, "Ana Yemek", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Mahmudiye", "Ballı ve bademli tavuk yahnisi", 380m, "Ana Yemek", "https://images.unsplash.com/photo-1548340748-6d2b7d7da280?w=400&h=300&fit=crop"),
+                new MenuItemDef("Vişneli Yaprak Sarma", "Ekşi vişneli zeytinyağlı yaprak sarması", 210m, "Meze", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Badem Çorbası", "Rendelenmiş muskat ve tatlı bademli saray çorbası", 140m, "Çorba", "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "hello@virginiaangus.com", OwnerName: "Mustafa Demir",
+            Name: "Virginia Angus", Address: "Mercan, Uzun Çarşı Cd. No:136, 34116 Fatih/İstanbul",
+            Lat: 41.0125, Lng: 28.9691,
+            Description: "100% Black Angus dana etinden hazırlanan katkısız, kalın köfteli burgerler.",
+            LogoUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Virginia Burger (200g)", "Karamelize soğan, cheddar, füme et", 320m, "Burger", "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop"),
+                new MenuItemDef("New York Burger (140g)", "Klasik cheeseburger, özel sos", 260m, "Burger", "https://images.unsplash.com/photo-1551782450-17144efb9c50?w=400&h=300&fit=crop"),
+                new MenuItemDef("Baharatlı Patates", "Özel baharat karışımlı çıtır patates kızartması", 90m, "Yan Ürün", "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=400&h=300&fit=crop"),
+                new MenuItemDef("Soğan Halkası (8li)", "Kalın kesim çıtır soğan halkaları", 110m, "Yan Ürün", "https://images.unsplash.com/photo-1576107232684-1279f390859f?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "bilgi@sultanahmetkoftecisi.com", OwnerName: "İsmail Tezçakın",
+            Name: "Tarihi Sultanahmet Köftecisi", Address: "Alemdar, Divan Yolu Cd. No:12, 34110 Fatih/İstanbul",
+            Lat: 41.0081, Lng: 28.9775,
+            Description: "1920'den beri değişmeyen lezzet. Sadece et, tuz ve soğandan oluşan tarihi köfte.",
+            LogoUrl: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Izgara Köfte Porsiyon", "6 adet tarihi köfte, biber ve domates ile", 280m, "Ana Yemek", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Piyaz", "Fasulye, soğan, haşlanmış yumurta ve sirke sos", 120m, "Salata", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kemalpaşa Tatlısı", "Tahin ve kaymaklı geleneksel tatlı", 90m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+                new MenuItemDef("Mercimek Çorbası", "Sade, günlük süzme mercimek", 80m, "Çorba", "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "rezervasyon@asitane.com", OwnerName: "Batur Durmay",
+            Name: "Asitane Restaurant", Address: "Dervişali, Kariye Cami Sk. No:6, 34240 Fatih/İstanbul",
+            Lat: 41.0315, Lng: 28.9385,
+            Description: "Osmanlı Saray arşivlerinden gün yüzüne çıkarılmış unutulmuş lezzetler.",
+            LogoUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Kavun Dolması", "Kıyma, pirinç, badem ve fıstıklı kavun içi", 480m, "Ana Yemek", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Dane-i Yeşil", "Antep fıstıklı ve dereotlu saray pilavı", 180m, "Yan Ürün", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Gerdaniyye", "Kuzu gerdan, erik ve kayısılı yahni", 520m, "Ana Yemek", "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"),
+                new MenuItemDef("Badem Ezmesi", "Geleneksel gül sulu marzipan", 150m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "iletisim@ciya.com.tr", OwnerName: "Musa Dağdeviren",
+            Name: "Çiya Sofrası", Address: "Caferağa, Güneşli Bahçe Sk. No:43, 34710 Kadıköy/İstanbul",
+            Lat: 40.9897, Lng: 29.0232,
+            Description: "Netflix Chef's Table yıldızı; Anadolu'nun unutulmuş yöresel tarifleri.",
+            LogoUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Kuru Patlıcan Dolması", "Güneydoğu usulü sumak ekşili dolma", 220m, "Zeytinyağlı", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Oruk", "Antakya usulü fırınlanmış içli köfte", 180m, "Ara Sıcak", "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop"),
+                new MenuItemDef("Mumbardolması", "Baharatlı pirinçli bumbar dolması", 280m, "Ana Yemek", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kerebiç", "Çöven otu köpüğü ile fıstıklı Hatay tatlısı", 140m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        // ════════════════════════════════════════════════════════════════
+        // ANKARA RESTORANLAR (10 adet)
+        // ════════════════════════════════════════════════════════════════
+
+        new RestaurantDef(
+            Email: "bilkent@mezzaluna.com.tr", OwnerName: "Mezzaluna TR",
+            Name: "Mezzaluna Bilkent", Address: "Üniversiteler Mah. Bilkent Center No:3, Çankaya/Ankara",
+            Lat: 39.8784, Lng: 32.7483,
+            Description: "Ankara'nın en prestijli İtalyan restoranı. Odun ateşinde pizza ve taze makarna.",
+            LogoUrl: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Pizza Margherita", "İnce hamur, domates sos, taze mozzarella", 290m, "Pizza", "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop"),
+                new MenuItemDef("Spaghetti Carbonara", "Pancetta, yumurta sarısı, pecorino romano", 310m, "Makarna", "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=300&fit=crop"),
+                new MenuItemDef("Carpaccio Di Manzo", "İnce dilim dana bonfile, roka, parmesan", 340m, "Başlangıç", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Panna Cotta", "Orman meyveleri soslu İtalyan kreması", 160m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "iletisim@trilye.com.tr", OwnerName: "Süreyya Üzmez",
+            Name: "Trilye Restaurant", Address: "Kazım Özalp, Kuleli Sokağı No:32, 06680 Çankaya/Ankara",
+            Lat: 39.8970, Lng: 32.8688,
+            Description: "Ankara'da deniz ürünleri denince akla gelen ilk, uluslararası ödüllü restoran.",
+            LogoUrl: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Fener Balığı Kavurma", "Tereyağı ve mantar ile güveçte fener balığı", 750m, "Balık", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=300&fit=crop"),
+                new MenuItemDef("Ahtapot Izgara", "Zeytinyağı ve kekik marineli lokum ahtapot", 680m, "Ara Sıcak", "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=400&h=300&fit=crop"),
+                new MenuItemDef("Deniz Levrek Izgara", "Közlenmiş sebzelerle günlük levrek", 600m, "Balık", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kabak Tatlısı", "Cevizli ve tahinli bal kabağı", 190m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "bilgi@aspavagulcimen.com", OwnerName: "Gülçimen Kardeşler",
+            Name: "Gülçimen Aspava", Address: "Emek, 8. Cd. No:64, 06490 Çankaya/Ankara",
+            Lat: 39.9198, Lng: 32.8222,
+            Description: "Ankara'nın vazgeçilmezi. Bol ikramlı, kaşarlı dürüm (SSK) ve döner.",
+            LogoUrl: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("SSK Dürüm", "Soslu, Soğanlı, Kaşarlı döner dürüm (İkramlar dahil)", 280m, "Döner", "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop"),
+                new MenuItemDef("İskender", "Tereyağlı, pideli ve özel soslu yaprak döner", 320m, "Döner", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Beyti Kebap", "Lavaşa sarılı, kaşarlı ve sarımsaklı yoğurtlu kebap", 340m, "Kebap", "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop"),
+                new MenuItemDef("Ayran", "Bol köpüklü yayık ayranı", 35m, "İçecek", "https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "iletisim@masabasi.com", OwnerName: "Yunus Emre",
+            Name: "Masabaşı Kebapçısı", Address: "Balgat, Ziyabey Cd. No:35, 06520 Çankaya/Ankara",
+            Lat: 39.9015, Lng: 32.8164,
+            Description: "Taze malzemelerle hazırlanan metrelik kebaplar ve taş fırın lezzetleri.",
+            LogoUrl: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Masabaşı Karışık (2 Kişilik)", "Adana, kuzu şiş, tavuk kanat ve pirzola", 850m, "Kebap", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Vali Kebabı", "Özel soslu bol etli spesiyal kebap", 420m, "Kebap", "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kuşbaşılı Kaşarlı Pide", "Odun ateşinde pişmiş ince hamur", 210m, "Pide", "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&h=300&fit=crop"),
+                new MenuItemDef("Künefe", "Hatay peyniri ve özel şerbet ile", 160m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "rezervasyon@fige.com.tr", OwnerName: "Fige Hanım",
+            Name: "Fige Restaurant", Address: "Çankaya, Prof. Dr. Aziz Sancar Cd. No:15, 06690 Çankaya/Ankara",
+            Lat: 39.8899, Lng: 32.8614,
+            Description: "Şık atmosferinde dünya mutfağının seçkin örnekleri ve caz dinletileri.",
+            LogoUrl: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Cafe de Paris Soslu Bonfile", "İnce patates kızartması eşliğinde", 580m, "Ana Yemek", "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"),
+                new MenuItemDef("Risotto ai Funghi", "Porçini mantarlı ve trüf yağlı risotto", 320m, "Makarna", "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=300&fit=crop"),
+                new MenuItemDef("Somon Fileto", "Kuşkonmaz ve limonlu tereyağ sos ile", 490m, "Balık", "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=300&fit=crop"),
+                new MenuItemDef("San Sebastian Cheesecake", "Akışkan içiyle orijinal tarif", 180m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "siparis@hacibaba.com.tr", OwnerName: "Hacıbaba Oğulları",
+            Name: "Hacıbaba Baklavacısı", Address: "Kızılay, Necatibey Cd. No:20, 06420 Çankaya/Ankara",
+            Lat: 39.9248, Lng: 32.8529,
+            Description: "Yarım asırlık tecrübesiyle Ankara'nın en iyi baklavacısı.",
+            LogoUrl: "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Fıstıklı Baklava (1 kg)", "Gaziantep fıstıklarıyla elde açılmış", 720m, "Tatlı", "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop"),
+                new MenuItemDef("Özel Kare Baklava (500g)", "Bol fıstıklı kalın dilim baklava", 420m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+                new MenuItemDef("Fıstık Ezmesi (250g)", "Sade fıstık ve hafif şerbet", 350m, "Tatlı", "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop"),
+                new MenuItemDef("Su Böreği (1 kg)", "Hakiki tereyağlı ve peynirli su böreği", 380m, "Börek", "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "iletisim@lavare.com.tr", OwnerName: "Ali Can",
+            Name: "L'avare", Address: "Ümitköy, 2432. Cd. No:114, 06810 Çankaya/Ankara",
+            Lat: 39.8973, Lng: 32.7001,
+            Description: "Avrupa mutfağının inceliklerini sihir gösterileri eşliğinde sunan mekan.",
+            LogoUrl: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Truffle Mac & Cheese", "Trüf mantarı ve 4 çeşit peynirli fırın makarna", 290m, "Makarna", "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=400&h=300&fit=crop"),
+                new MenuItemDef("Beef Wellington", "Milföy hamuruna sarılı bonfile ve mantar duxelles", 680m, "Ana Yemek", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Burrata Salatası", "Taze fesleğen ve cherry domatesli taze İtalyan peyniri", 260m, "Başlangıç", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Çikolatalı Sufle", "Vanilyalı dondurma ile sıcak servis", 190m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "bilgi@kumsallokantasi.com", OwnerName: "Fatma Teyze",
+            Name: "Kumsal Lokantası", Address: "Bahçelievler, 7. Cd. No:24, 06490 Çankaya/Ankara",
+            Lat: 39.9192, Lng: 32.8251,
+            Description: "Anne eli değmiş gibi, günlük değişen taze tencere yemekleri.",
+            LogoUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Kuru Fasulye & Pilav", "İspir fasulyesi ve tereyağlı pirinç pilavı", 180m, "Ev Yemeği", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Tas Kebabı", "Kuşbaşı dana eti ve patatesli sulu yemek", 220m, "Ev Yemeği", "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop"),
+                new MenuItemDef("Zeytinyağlı Tabağı", "Enginar, taze fasulye ve yaprak sarma", 160m, "Zeytinyağlı", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Sütlaç", "Fırınlanmış anne sütlacı", 80m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "info@uludagkebap.com.tr", OwnerName: "Cemal Usta",
+            Name: "Uludağ İskender Kebapçısı", Address: "Kızılay, Selanik Cd. No:44, 06420 Çankaya/Ankara",
+            Lat: 39.9205, Lng: 32.8552,
+            Description: "Ankara'da Bursa'nın tarihi iskender lezzetini sunan köklü mekan.",
+            LogoUrl: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("İskender Kebap (1.5 Porsiyon)", "Bol tereyağlı ve özel domates soslu", 480m, "Kebap", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("İskender Kebap (1 Porsiyon)", "Tırnak pide, yoğurt ve ızgara domates ile", 360m, "Kebap", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Şıra", "Üzümden yapılan geleneksel fermente içecek", 45m, "İçecek", "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400&h=300&fit=crop"),
+                new MenuItemDef("Kemalpaşa Tatlısı", "Bol kaymaklı Bursa klasiği", 95m, "Tatlı", "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop"),
+            }
+        ),
+
+        new RestaurantDef(
+            Email: "iletisim@gunaydinkebap.ankara", OwnerName: "Cüneyt Asan",
+            Name: "Günaydın Kebap Ankara", Address: "Gaziosmanpaşa, Arjantin Cd. No:32, 06700 Çankaya/Ankara",
+            Lat: 39.8974, Lng: 32.8643,
+            Description: "Günaydın kalitesi şimdi Arjantin caddesinde.",
+            LogoUrl: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=400&fit=crop",
+            MenuItems: new[]
+            {
+                new MenuItemDef("Şaşlık Kebabı", "Terbiye edilmiş kuzu eti ve soğan dilimleri", 480m, "Kebap", "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=400&h=300&fit=crop"),
+                new MenuItemDef("Fıstıklı Kebap", "Bol Antep fıstıklı özel kıyım kebap", 450m, "Kebap", "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Ezme Salata", "Acılı ve bol sarımsaklı ince kıyım meze", 120m, "Meze", "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop"),
+                new MenuItemDef("Katmer", "Gaziantep usulü çıtır ince hamur ve kaymak", 220m, "Tatlı", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop"),
+            }
+        )
+
     };
 }

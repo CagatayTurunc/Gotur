@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { restaurantService, type MenuItem } from '../services/restaurantService'
 import ThemeToggle from '../components/ThemeToggle'
@@ -108,7 +108,6 @@ const REVIEWS = [
 export default function RestaurantDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const location = useLocation()
   const user = authService.getUser()
   const { selectedAddress, openPicker } = useAddress()
 

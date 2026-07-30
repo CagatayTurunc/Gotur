@@ -16,6 +16,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
     public DbSet<RestaurantApplication> RestaurantApplications => Set<RestaurantApplication>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<CourierLocationHistory> CourierLocationHistory => Set<CourierLocationHistory>();
+    public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
+    public DbSet<FeatureFlag> FeatureFlags => Set<FeatureFlag>();
 
     public DbSet<Favorite> Favorites => Set<Favorite>();
     public DbSet<Review> Reviews => Set<Review>();
@@ -162,26 +164,55 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>
                     "\"Rating\" >= 1 AND \"Rating\" <= 5"));
         });
 
-        // ── Category ───────────────────────────────────────────────
-        builder.Entity<Category>(e =>            
-            {
-                e.HasKey(c => c.Id);
+        // ── Category ──────────────────────────────────────────────
+        builder.Entity<Category>(e =>
+        {
+            e.HasKey(c => c.Id);
 
-                e.Property(c => c.Name)
-                    .IsRequired()
-                    .HasMaxLength(100);
+            e.Property(c => c.Name)
+                .IsRequired()
+                .HasMaxLength(100);
 
-                e.Property(c => c.Description)
-                    .HasMaxLength(500);
+            e.Property(c => c.Description)
+                .HasMaxLength(500);
 
-                e.HasIndex(c => c.Name)
-                    .IsUnique();
-            });
-        
+            e.HasIndex(c => c.Name)
+                .IsUnique();
+        });
+
         builder.Entity<MenuItem>()
             .HasOne(m => m.CategoryEntity)
             .WithMany(c => c.MenuItems)
             .HasForeignKey(m => m.CategoryId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // ── OutboxEvent ──────────────────────────────────────────
+        // Outbox Pattern: DB yazma + event yayınlama tutarlılığı için.
+        builder.Entity<OutboxEvent>(e =>
+        {
+            e.HasKey(o => o.Id);
+            e.Property(o => o.Payload).HasColumnType("jsonb");
+
+            e.HasIndex(o => o.ProcessedAt)
+                .HasFilter("\"ProcessedAt\" IS NULL");
+
+            e.HasIndex(o => o.CreatedAt);
+        });
+
+        // ── FeatureFlag ──────────────────────────────────────────
+        // Feature flag tablosu: kademeli rollout ve A/B test için.
+        builder.Entity<FeatureFlag>(e =>
+        {
+            e.HasKey(f => f.Id);
+
+            e.HasIndex(f => f.Name)
+                .IsUnique();
+
+            e.Property(f => f.Name)
+                .HasMaxLength(100);
+
+            e.Property(f => f.Description)
+                .HasMaxLength(500);
+        });
     }
 }

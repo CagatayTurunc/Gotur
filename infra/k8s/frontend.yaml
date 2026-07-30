@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: gotur-frontend
     app.kubernetes.io/part-of: gotur
 spec:
-  replicas: 2
+  replicas: 1  # t3.small RAM limiti için 1 replica
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -26,7 +26,7 @@ spec:
       containers:
         - name: frontend
           image: ghcr.io/cagatayturunc/gotur-frontend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80
