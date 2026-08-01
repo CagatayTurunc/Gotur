@@ -40,7 +40,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-const DELIVERY_RADIUS_KM = 10000 // Teslimat yarıçapı artırıldı
+const DELIVERY_RADIUS_KM = 25 // Teslimat yarıçapı — adres seçilince bu mesafe içindekiler gösterilir
 
 const TEST_ACCOUNTS = [
   { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'musteri@test.com',  password: 'Test123!'  },
