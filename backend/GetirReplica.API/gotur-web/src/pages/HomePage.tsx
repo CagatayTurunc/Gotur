@@ -463,7 +463,7 @@ export default function HomePage() {
       {activeTab !== 'restaurants' ? (
         <div className="max-w-7xl mx-auto px-4 md:px-12 py-16 md:py-24">
           {/* Hero Section */}
-          <div className="flex flex-col items-stretch text-center gap-6 mb-16">
+          <div className="flex flex-col items-center text-center gap-6 mb-16">
             <div className="flex justify-center">
               <div className="relative">
                 <div className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-lg"
@@ -479,7 +479,7 @@ export default function HomePage() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-3 mx-auto w-full max-w-lg px-2">
+            <div className="flex flex-col gap-3 mx-auto w-full max-w-lg px-2 text-center">
               <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 {activeTab === 'pickup' ? 'Al Götür' : 'Götür Market'}
               </h1>
@@ -532,7 +532,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center gap-4 mt-16 p-8 rounded-3xl max-w-xl w-full mx-auto border"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
             <span className="material-symbols-outlined text-[32px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>notifications</span>
-            <div className="text-center w-full">
+            <div className="text-center w-full max-w-xs mx-auto">
               <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
                 {activeTab === 'pickup' ? 'Al Götür yakında açılıyor' : 'Götür Market çok yakında'}
               </p>
