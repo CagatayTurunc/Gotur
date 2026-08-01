@@ -31,6 +31,14 @@ public static class DataSeeder
             await userManager.AddToRoleAsync(admin, "admin");
         }
 
+        // Admin 2
+        if (await userManager.FindByEmailAsync("admin1@getir.com") == null)
+        {
+            var admin2 = new AppUser { Email = "admin1@getir.com", UserName = "admin1@getir.com", FullName = "Cagatay Turunc", Role = "admin" };
+            await userManager.CreateAsync(admin2, "Admin123!");
+            await userManager.AddToRoleAsync(admin2, "admin");
+        }
+
         // Müşteriler
         var customers = new[]
         {

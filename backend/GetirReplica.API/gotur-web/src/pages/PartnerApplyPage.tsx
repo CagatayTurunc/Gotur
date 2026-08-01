@@ -27,13 +27,58 @@ export default function PartnerApplyPage() {
   const [password, setPassword]       = useState('')
   const [passwordConf, setPasswordConf] = useState('')
   const [showPass, setShowPass]       = useState(false)
+  const [phoneError, setPhoneError]   = useState('')
 
   const set = (k: keyof SubmitApplicationRequest) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm(f => ({ ...f, [k]: e.target.value }))
 
+  // Telefon formatı: sadece rakam ve + — otomatik boşluk ekle
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^\d+]/g, '')
+    // +90 ile başlıyorsa 0'a çevir
+    let normalized = raw.startsWith('+90') ? '0' + raw.slice(3) : raw
+    // Maksimum 11 rakam (05XX XXX XX XX)
+    normalized = normalized.slice(0, 11)
+    // Otomatik formatlama: 0532 123 45 67
+    let formatted = normalized
+    if (normalized.length > 4 && normalized.length <= 7)
+      formatted = normalized.slice(0, 4) + ' ' + normalized.slice(4)
+    else if (normalized.length > 7 && normalized.length <= 9)
+      formatted = normalized.slice(0, 4) + ' ' + normalized.slice(4, 7) + ' ' + normalized.slice(7)
+    else if (normalized.length > 9)
+      formatted = normalized.slice(0, 4) + ' ' + normalized.slice(4, 7) + ' ' + normalized.slice(7, 9) + ' ' + normalized.slice(9)
+    setForm(f => ({ ...f, phone: formatted }))
+    setPhoneError('')
+  }
+
+  const validatePhone = () => {
+    const digits = form.phone.replace(/\D/g, '')
+    if (!digits) { setPhoneError('Telefon numarası zorunludur.'); return }
+    if (digits.length !== 11) { setPhoneError('Telefon numarası 11 haneli olmalıdır (05XX XXX XX XX).'); return }
+    if (!digits.startsWith('05')) { setPhoneError('Türkiye numarası 05 ile başlamalıdır.'); return }
+    const validPrefixes = ['530','531','532','533','534','535','536','537','538','539',
+      '540','541','542','543','544','545','546','547','548','549',
+      '550','551','552','553','554','555','556','557','558','559',
+      '560','561','562','505','506','507','501','502','503','504',
+      '850','212','216','312']
+    const prefix3 = digits.slice(1, 4)
+    if (!validPrefixes.some(p => prefix3 === p)) {
+      setPhoneError('Geçerli bir Türkiye telefon operatörü kodu giriniz.')
+      return
+    }
+    setPhoneError('')
+  }
+
+  const phoneValid = (() => {
+    const digits = form.phone.replace(/\D/g, '')
+    if (digits.length !== 11) return false
+    if (!digits.startsWith('05')) return false
+    return true
+  })()
+
   const passwordValid = currentUser || (password.length >= 6 && password === passwordConf)
-  const step1Valid = form.restaurantName && form.ownerName && form.email && form.phone && passwordValid
+  const step1Valid = form.restaurantName && form.ownerName && form.email && form.phone && phoneValid && passwordValid
   const step2Valid = form.address && form.city && form.category
 
   const handleSubmit = async () => {
@@ -230,12 +275,30 @@ export default function PartnerApplyPage() {
                   <label className="block text-sm font-semibold mb-1.5" style={{ color: '#271815' }}>
                     Telefon <span style={{ color: '#6f0001' }}>*</span>
                   </label>
-                  <input value={form.phone} onChange={set('phone')} type="tel"
+                  <input
+                    value={form.phone}
+                    onChange={handlePhoneChange}
+                    onBlur={validatePhone}
+                    type="tel"
                     placeholder="0532 000 00 00"
+                    maxLength={14}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
-                    style={{ borderColor: '#e4beb8', color: '#271815' }}
-                    onFocus={e => e.target.style.borderColor = '#6f0001'}
-                    onBlur={e => e.target.style.borderColor = '#e4beb8'} />
+                    style={{ borderColor: phoneError ? '#c5221f' : '#e4beb8', color: '#271815' }}
+                    onFocus={e => e.target.style.borderColor = phoneError ? '#c5221f' : '#6f0001'}
+                  />
+                  {phoneError ? (
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#c5221f' }}>
+                      <span className="material-symbols-outlined text-[13px]">error</span>
+                      {phoneError}
+                    </p>
+                  ) : form.phone && phoneValid ? (
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#137333' }}>
+                      <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                      Geçerli telefon numarası
+                    </p>
+                  ) : (
+                    <p className="text-xs mt-1" style={{ color: '#9a8f85' }}>Türkiye numarası: 05XX XXX XX XX</p>
+                  )}
                 </div>
               </div>
               <div>

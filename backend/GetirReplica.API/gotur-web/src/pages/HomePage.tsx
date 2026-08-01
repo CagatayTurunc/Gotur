@@ -46,7 +46,7 @@ const TEST_ACCOUNTS = [
   { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'musteri@test.com',  password: 'Test123!'  },
   { icon: '🛵', label: 'Kurye',    sub: 'Test123!',   email: 'kurye1@test.com',   password: 'Test123!'  },
   { icon: '🍽️', label: 'Restoran', sub: 'Test123!',   email: 'restoran@test.com', password: 'Test123!'  },
-  { icon: '⚙️', label: 'Admin',    sub: 'Admin123!',  email: 'admin@getir.com',   password: 'Admin123!' },
+  { icon: '⚙️', label: 'Admin',    sub: 'Admin123!',  email: 'admin@gotur.com',   password: 'Admin123!' },
 ]
 
 const roleLabel: Record<string, string> = { customer: 'Müşteri', courier: 'Kurye', admin: 'Admin', restaurant: 'Restoran' }
@@ -104,6 +104,7 @@ export default function HomePage() {
   const [authLoading,   setAuthLoading]   = useState(false)
   const [authError,     setAuthError]     = useState('')
   const [showTestAccts, setShowTestAccts] = useState(false)
+  const [showAuthPass,  setShowAuthPass]  = useState(false)
 
   useEffect(() => {
     const state = location.state as LocationState | null
@@ -144,7 +145,7 @@ export default function HomePage() {
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode)
     setAuthEmail(''); setAuthPass(''); setAuthName(''); setAuthRole('customer')
-    setAuthError(''); setShowTestAccts(false); setAuthOpen(true)
+    setAuthError(''); setShowTestAccts(false); setShowAuthPass(false); setAuthOpen(true)
   }
   const closeAuth = () => { setAuthOpen(false); setAuthError(''); setShowTestAccts(false) }
 
@@ -808,8 +809,14 @@ export default function HomePage() {
                 )}
                 <input required type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="E-posta adresi"
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
-                <input required type="password" value={authPass} onChange={e => setAuthPass(e.target.value)} placeholder="Şifre (en az 6 karakter, rakam içermeli)"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
+                <div className="relative">
+                  <input required type={showAuthPass ? 'text' : 'password'} value={authPass} onChange={e => setAuthPass(e.target.value)} placeholder="Şifre (en az 6 karakter, rakam içermeli)"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 pr-11 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400" />
+                  <button type="button" onClick={() => setShowAuthPass(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <span className="material-symbols-outlined text-[20px]">{showAuthPass ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
                 {authMode === 'register' && (
                   <select value={authRole} onChange={e => setAuthRole(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900">
