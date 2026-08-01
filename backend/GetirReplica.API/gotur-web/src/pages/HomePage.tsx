@@ -479,11 +479,11 @@ export default function HomePage() {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-3 mx-auto w-full max-w-lg px-2 text-center">
-              <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            <div className="flex flex-col gap-3 mx-auto w-full max-w-2xl px-4 text-center">
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 {activeTab === 'pickup' ? 'Al Götür' : 'Götür Market'}
               </h1>
-              <p className="text-base md:text-lg leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-sm md:text-lg leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 {activeTab === 'pickup'
                   ? 'Siparişini ver, hazır olunca gel al. Sıra bekleme, soğuma yok.'
                   : 'Taze meyve sebzeden temel ihtiyaçlara, dakikalar içinde kapında.'}
@@ -532,7 +532,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center gap-4 mt-16 p-8 rounded-3xl max-w-xl w-full mx-auto border"
             style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
             <span className="material-symbols-outlined text-[32px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>notifications</span>
-            <div className="text-center w-full max-w-xs mx-auto">
+            <div className="text-center w-full max-w-sm mx-auto">
               <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
                 {activeTab === 'pickup' ? 'Al Götür yakında açılıyor' : 'Götür Market çok yakında'}
               </p>
