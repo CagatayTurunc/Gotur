@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { useEffect, useState } from 'react'
 import { authService } from './services/authService'
 import { ThemeProvider } from './context/ThemeContext'
 import { AddressProvider } from './context/AddressContext'
@@ -48,6 +49,38 @@ function LoginRoute() {
 }
 
 export default function App() {
+  const [roleChecked, setRoleChecked] = useState(false)
+
+  // Uygulama açıldığında /auth/me ile güncel rolü kontrol et.
+  // Admin başvuruyu onayladıktan sonra kullanıcının localStorage'ı eski rolü
+  // gösteriyor olabilir — burada senkronize ediyoruz.
+  useEffect(() => {
+    const syncRole = async () => {
+      if (!authService.isLoggedIn()) { setRoleChecked(true); return }
+      try {
+        const me = await authService.me()
+        const cached = authService.getUser()
+        if (cached && me.role !== cached.role) {
+          // Rol değişmiş — localStorage'daki user kaydını güncelle
+          localStorage.setItem('user', JSON.stringify(me))
+          // Yeni role göre sayfayı yenile
+          window.location.replace(
+            me.role === 'restaurant' ? '/restaurant' :
+            me.role === 'admin'      ? '/admin'      :
+            me.role === 'courier'    ? '/courier'    : '/'
+          )
+          return
+        }
+      } catch {
+        // Token süresi dolmuşsa veya ağ hatası — sessizce geç
+      }
+      setRoleChecked(true)
+    }
+    syncRole()
+  }, [])
+
+  if (!roleChecked) return null   // Rol kontrolü tamamlanana kadar beyaz ekran yerine boş render
+
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
       <ThemeProvider>
