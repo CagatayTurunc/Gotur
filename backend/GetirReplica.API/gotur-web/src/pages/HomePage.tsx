@@ -244,8 +244,9 @@ export default function HomePage() {
     try {
       await authService.forgotPassword(forgotEmail)
       setForgotSent(true)
-    } catch {
-      setForgotError('Bir hata oluştu. Lütfen tekrar deneyin.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setForgotError(e?.response?.data?.message ?? 'Bir hata oluştu. Lütfen tekrar deneyin.')
     } finally {
       setForgotLoading(false)
     }
@@ -783,10 +784,54 @@ export default function HomePage() {
           <span className="text-[10px]">Profil</span>
         </button>
       </nav>
-      <div className="h-16 lg:hidden" />
+      {/* Mobil nav + misafir banner boşluğu */}
+      <div className={`lg:hidden ${!user ? 'h-28' : 'h-16'}`} />
 
       {helpOpen && (
         <HelpDrawer onClose={() => { setHelpOpen(false); setHelpSearch('') }} helpSearch={helpSearch} setHelpSearch={setHelpSearch} />
+      )}
+
+      {/* ── Misafir Hoşgeldin Banner ── */}
+      {!user && (
+        <div
+          className="fixed bottom-16 lg:bottom-0 left-0 w-full z-[60] flex items-center justify-between gap-3 px-4 md:px-10 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.18)]"
+          style={{ backgroundColor: '#1c1c1e', animation: 'slideUpBanner .35s cubic-bezier(.22,1,.36,1)' }}
+        >
+          {/* Sol: animasyonlu karakter + metin */}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* El sallayan emoji — waveHand animasyonu */}
+            <span
+              className="text-2xl md:text-3xl flex-shrink-0 select-none"
+              style={{ display: 'inline-block', animation: 'waveHand 1.6s ease-in-out infinite', transformOrigin: '70% 80%' }}
+              aria-label="Hoş geldiniz"
+            >
+              👋
+            </span>
+            <p className="text-sm md:text-base text-white leading-tight">
+              <span className="font-bold">Hoş geldiniz, keyfini çıkarın!</span>{' '}
+              <span className="text-white/70 hidden sm:inline">
+                <span className="font-semibold text-white/90">Ücretsiz teslimat</span> İlk siparişinizde özel indirim
+              </span>
+            </p>
+          </div>
+
+          {/* Sağ: Kayıt ol butonu + kapat */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => openAuth('register')}
+              className="px-4 md:px-5 py-2 rounded-full text-sm font-bold text-white transition-all hover:opacity-90 hover:scale-[1.03] active:scale-95"
+              style={{ backgroundColor: 'var(--accent)', boxShadow: '0 2px 10px rgba(154,0,2,0.5)' }}
+            >
+              Kayıt ol
+            </button>
+            <button
+              onClick={() => openAuth('login')}
+              className="px-3 md:px-4 py-2 rounded-full text-sm font-semibold border border-white/20 text-white/80 hover:text-white hover:border-white/40 transition-all hidden sm:block"
+            >
+              Giriş Yap
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Auth Modal */}
@@ -988,6 +1033,17 @@ export default function HomePage() {
       <style>{`
         @keyframes dropIn  { from{opacity:0;transform:translateY(-8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes scaleUp { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        @keyframes slideUpBanner { from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:translateY(0)} }
+        @keyframes waveHand {
+          0%   { transform: rotate(0deg)   }
+          10%  { transform: rotate(18deg)  }
+          20%  { transform: rotate(-10deg) }
+          30%  { transform: rotate(18deg)  }
+          40%  { transform: rotate(-6deg)  }
+          50%  { transform: rotate(14deg)  }
+          60%  { transform: rotate(0deg)   }
+          100% { transform: rotate(0deg)   }
+        }
       `}</style>
 
       {/* ── FOOTER ── */}

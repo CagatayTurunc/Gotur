@@ -280,7 +280,10 @@ public class AuthController : ControllerBase
             // ama sunucu tarafında logla
             HttpContext.RequestServices
                 .GetRequiredService<ILogger<AuthController>>()
-                .LogError(ex, "Şifre sıfırlama maili gönderilemedi: {Email}", dto.Email);
+                .LogError(ex, "Şifre sıfırlama maili gönderilemedi: {Email} — {ErrorMessage}", dto.Email, ex.Message);
+
+            // Production'da da hatayı döndür ki frontend kullanıcıyı uyarsın
+            return StatusCode(500, new { message = $"Mail gönderilemedi: {ex.Message}" });
         }
 
         return Ok(new { message = "Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi." });

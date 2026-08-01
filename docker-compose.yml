@@ -48,6 +48,13 @@ services:
       - Jwt__Issuer=GetirReplicaAPI
       - Jwt__Audience=GetirReplicaClient
       - Jwt__ExpiryMinutes=480
+      - Frontend__BaseUrl=https://gotur.site
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Port=587
+      - Smtp__Username=cagatayturuncc06@gmail.com
+      - Smtp__Password=vaee nnof grmf guwg
+      - Smtp__FromName=Götür
+      - Smtp__FromAddress=cagatayturuncc06@gmail.com
     depends_on:
       postgres:
         condition: service_healthy
