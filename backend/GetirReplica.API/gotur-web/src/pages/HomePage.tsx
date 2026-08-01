@@ -911,7 +911,7 @@ export default function HomePage() {
                 </>
               )}
               {/* Giriş / Kayıt Formu */}
-              {authMode !== 'forgot' && (
+              {authMode !== 'forgot' && (<>
               <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
                 {authMode === 'register' && (
                   <input required type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Ad Soyad"
@@ -979,7 +979,7 @@ export default function HomePage() {
               <button type="button" onClick={closeAuth} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors mt-2 py-1">
                 Kayıt olmadan devam et
               </button>
-              )}
+              </>)}
             </div>
           </div>
         </div>
