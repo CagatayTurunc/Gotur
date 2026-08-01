@@ -711,7 +711,7 @@ export default function RestaurantPage() {
                           type="button"
                           onClick={() => setMenuForm(f => ({ ...f, isAvailable: !f.isAvailable }))}
                           style={{ position:'relative', width:'44px', height:'24px', borderRadius:'12px', border:'none', cursor:'pointer', backgroundColor: menuForm.isAvailable ? '#6f0001' : '#c6c6c7', transition:'background-color 0.2s', flexShrink:0 }}>
-                          <span style={{ position:'absolute', width:'18px', height:'18px', backgroundColor:'#fff', borderRadius:'50%', boxShadow:'0 1px 3px rgba(0,0,0,0.2)', top:'3px', transition:'transform 0.2s', transform: menuForm.isAvailable ? 'translateX(22px)' : 'translateX(3px)' }} />
+                          <span style={{ position:'absolute', width:'18px', height:'18px', backgroundColor:'#fff', borderRadius:'50%', boxShadow:'0 1px 3px rgba(0,0,0,0.2)', top:'3px', left:0, transition:'transform 0.2s', transform: menuForm.isAvailable ? 'translateX(23px)' : 'translateX(3px)' }} />
                         </button>
                       </div>
 
@@ -924,7 +924,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
     <button type="button" onClick={onChange}
       style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', backgroundColor: on ? '#6f0001' : '#c6c6c7', transition: 'background-color 0.2s', flexShrink: 0, padding: 0 }}>
-      <span style={{ position: 'absolute', width: '18px', height: '18px', backgroundColor: '#fff', borderRadius: '50%', top: '3px', transition: 'transform 0.2s', transform: on ? 'translateX(22px)' : 'translateX(3px)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+      <span style={{ position: 'absolute', width: '18px', height: '18px', backgroundColor: '#fff', borderRadius: '50%', top: '3px', left: 0, transition: 'transform 0.2s', transform: on ? 'translateX(23px)' : 'translateX(3px)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
     </button>
   )
 }
