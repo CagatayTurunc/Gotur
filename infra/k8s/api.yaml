@@ -87,6 +87,36 @@ spec:
                 secretKeyRef:
                   name: gotur-api-secrets
                   key: Jwt__Secret
+            - name: Smtp__Host
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__Host
+            - name: Smtp__Port
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__Port
+            - name: Smtp__Username
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__Username
+            - name: Smtp__Password
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__Password
+            - name: Smtp__FromName
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__FromName
+            - name: Smtp__FromAddress
+              valueFrom:
+                secretKeyRef:
+                  name: gotur-smtp-secrets
+                  key: Smtp__FromAddress
 
           # Readiness: PostgreSQL + Redis bağlantısını doğrular.
           # Başarısız olursa pod trafik almaz ama restart etmez.
