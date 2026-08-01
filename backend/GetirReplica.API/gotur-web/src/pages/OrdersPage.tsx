@@ -178,12 +178,12 @@ export default function OrdersPage() {
 
         {/* Boş durum */}
         {!loading && orders.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="flex flex-col items-center justify-center py-20 text-center px-4">
             <div className="w-20 h-20 rounded-full bg-[#fff0ee] flex items-center justify-center mb-4">
               <Icon name="receipt_long" className="text-[40px] text-[#9a0002]/40" />
             </div>
-            <h3 className="font-bold text-[#271815] text-lg mb-1">Henüz sipariş yok</h3>
-            <p className="text-sm text-[#8f706b] max-w-xs mb-6">
+            <h3 className="font-bold text-[#271815] text-lg mb-2">Henüz sipariş yok</h3>
+            <p className="text-sm text-[#8f706b] max-w-sm w-full mb-6 leading-relaxed">
               {filter === 'all'
                 ? 'Hiç sipariş vermedin. İlk siparişini vermek ister misin?'
                 : 'Bu kategoride sipariş bulunamadı.'}
@@ -191,7 +191,7 @@ export default function OrdersPage() {
             {filter === 'all' && (
               <button
                 onClick={() => navigate('/')}
-                className="px-6 py-3 bg-[#9a0002] text-white rounded-full font-bold text-sm hover:bg-[#6f0001] transition shadow-md"
+                className="px-8 py-3 bg-[#9a0002] text-white rounded-full font-bold text-sm hover:bg-[#6f0001] transition shadow-md"
               >
                 Sipariş Ver
               </button>
