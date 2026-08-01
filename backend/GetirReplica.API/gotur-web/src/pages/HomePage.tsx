@@ -932,11 +932,17 @@ export default function HomePage() {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Hizmetler</h4>
             <ul className="space-y-2.5">
-              {['Restoran Siparişi', 'Al Götür', 'Market', 'Restoran Ortağımız Olun', 'Kurye Ol'].map(l => (
-                <li key={l}>
+              {[
+                { label: 'Restoran Siparişi', path: '/' },
+                { label: 'Al Götür', path: '/' },
+                { label: 'Market', path: '/' },
+                { label: 'Restoran Ortağımız Olun', path: '/partner/apply' },
+                { label: 'Kurye Ol', path: '/login' },
+              ].map(l => (
+                <li key={l.label}>
                   <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}
-                    onClick={() => l === 'Restoran Ortağımız Olun' ? navigate('/partner/apply') : undefined}>
-                    {l}
+                    onClick={() => navigate(l.path)}>
+                    {l.label}
                   </button>
                 </li>
               ))}
@@ -947,9 +953,18 @@ export default function HomePage() {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Destek</h4>
             <ul className="space-y-2.5">
-              {['Yardım Merkezi', 'Sık Sorulan Sorular', 'İletişim', 'Sipariş Takibi', 'Uygulamamızı İndir'].map(l => (
-                <li key={l}>
-                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}>{l}</button>
+              {[
+                { label: 'Yardım Merkezi', path: '/yardim' },
+                { label: 'Sık Sorulan Sorular', path: '/sss' },
+                { label: 'İletişim', path: '/iletisim' },
+                { label: 'Sipariş Takibi', path: '/siparis-takibi' },
+                { label: 'Uygulamamızı İndir', path: '/uygulamayi-indir' },
+              ].map(l => (
+                <li key={l.label}>
+                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}
+                    onClick={() => navigate(l.path)}>
+                    {l.label}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -960,15 +975,18 @@ export default function HomePage() {
             <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Yasal</h4>
             <ul className="space-y-2.5">
               {[
-                'Kullanım Koşulları',
-                'Gizlilik Politikası',
-                'Çerez Politikası',
-                'KVKK Aydınlatma Metni',
-                'Kişisel Veri Talebi',
-                'Bilgi Toplumu Hizmetleri',
+                { label: 'Kullanım Koşulları', path: '/kullanim-kosullari' },
+                { label: 'Gizlilik Politikası', path: '/gizlilik' },
+                { label: 'Çerez Politikası', path: '/cerez-politikasi' },
+                { label: 'KVKK Aydınlatma Metni', path: '/kvkk' },
+                { label: 'Kişisel Veri Talebi', path: '/veri-talebi' },
+                { label: 'Bilgi Toplumu Hizmetleri', path: '/bilgi-toplumu' },
               ].map(l => (
-                <li key={l}>
-                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}>{l}</button>
+                <li key={l.label}>
+                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}
+                    onClick={() => navigate(l.path)}>
+                    {l.label}
+                  </button>
                 </li>
               ))}
             </ul>

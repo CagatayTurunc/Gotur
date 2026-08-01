@@ -17,6 +17,17 @@ import WalletPage from './pages/WalletPage'
 import OrdersPage from './pages/OrdersPage'
 import AccountPage from './pages/AccountPage'
 import PartnerApplyPage from './pages/PartnerApplyPage'
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+import KvkkPage from './pages/KvkkPage'
+import CookiePolicyPage from './pages/CookiePolicyPage'
+import InfoSocietyPage from './pages/InfoSocietyPage'
+import DataRequestPage from './pages/DataRequestPage'
+import HelpPage from './pages/HelpPage'
+import FaqPage from './pages/FaqPage'
+import ContactPage from './pages/ContactPage'
+import OrderTrackingInfoPage from './pages/OrderTrackingInfoPage'
+import DownloadAppPage from './pages/DownloadAppPage'
 
 // Giriş yapılmamışsa login'e yönlendir
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -116,6 +127,17 @@ export default function App() {
           <PrivateRoute><AccountPage /></PrivateRoute>
         } />
         <Route path="/partner/apply" element={<PartnerApplyPage />} />
+        <Route path="/gizlilik" element={<PrivacyPage />} />
+        <Route path="/kullanim-kosullari" element={<TermsPage />} />
+        <Route path="/kvkk" element={<KvkkPage />} />
+        <Route path="/cerez-politikasi" element={<CookiePolicyPage />} />
+        <Route path="/bilgi-toplumu" element={<InfoSocietyPage />} />
+        <Route path="/veri-talebi" element={<DataRequestPage />} />
+        <Route path="/yardim" element={<HelpPage />} />
+        <Route path="/sss" element={<FaqPage />} />
+        <Route path="/iletisim" element={<ContactPage />} />
+        <Route path="/siparis-takibi" element={<OrderTrackingInfoPage />} />
+        <Route path="/uygulamayi-indir" element={<DownloadAppPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
           </BrowserRouter>
