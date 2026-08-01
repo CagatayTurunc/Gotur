@@ -71,6 +71,7 @@ export default function HomePage() {
   const [apiRests,    setApiRests]    = useState<Restaurant[]>([])
   const [userMenu,    setUserMenu]    = useState(false)
   const [activeOrder, setActiveOrder] = useState<{ id: string; status: string; restaurantName?: string } | null>(null)
+  const [navSearch,   setNavSearch]   = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
   const campaignRef = useRef<HTMLDivElement>(null)
 
@@ -248,6 +249,15 @@ export default function HomePage() {
     return 0
   })
 
+  // Arama filtresi — restoran adı, açıklama veya adresine göre
+  const finalRests = navSearch.trim()
+    ? sorted.filter(r =>
+        r.name.toLowerCase().includes(navSearch.toLowerCase()) ||
+        (r.description ?? '').toLowerCase().includes(navSearch.toLowerCase()) ||
+        r.address.toLowerCase().includes(navSearch.toLowerCase())
+      )
+    : sorted
+
   const toggleFav    = (e: React.MouseEvent, name: string) => {
     e.stopPropagation()
     setFavorites(p => { const s = new Set(p); s.has(name) ? s.delete(name) : s.add(name); return s })
@@ -326,7 +336,9 @@ export default function HomePage() {
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" style={{ color: 'var(--text-muted)' }}>search</span>
               <input className="w-full pl-10 pr-4 py-2.5 rounded-full border text-sm outline-none transition-all"
                 style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-                placeholder="Yemek, mutfak veya restoran ara" />
+                placeholder="Yemek, mutfak veya restoran ara"
+                value={navSearch}
+                onChange={e => setNavSearch(e.target.value)} />
             </div>
             <div className="hidden md:flex items-center gap-2">
               {user ? (
@@ -628,7 +640,9 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>
-                  {selectedAddress ? `${sorted.length} Restoran Bulundu` : 'Tüm Restoranlar'}
+                  {navSearch.trim()
+                    ? `"${navSearch}" için ${finalRests.length} sonuç`
+                    : selectedAddress ? `${finalRests.length} Restoran Bulundu` : 'Tüm Restoranlar'}
                 </h2>
                 {selectedAddress && (
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
@@ -650,7 +664,7 @@ export default function HomePage() {
             </div>
 
             {/* Adres seçili ama sonuç yok */}
-            {selectedAddress && sorted.length === 0 && (
+            {selectedAddress && finalRests.length === 0 && !navSearch.trim() && (
               <div className="flex flex-col items-center justify-center py-16 gap-4">
                 <span className="material-symbols-outlined text-[56px]" style={{ color: 'var(--text-muted)' }}>location_off</span>
                 <div className="text-center">
@@ -670,7 +684,14 @@ export default function HomePage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {sorted.map(r => {
+              {navSearch.trim() && finalRests.length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center py-16 gap-3">
+                  <span className="material-symbols-outlined text-[48px] opacity-20" style={{ color: 'var(--text-primary)' }}>search_off</span>
+                  <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>"{navSearch}" için sonuç bulunamadı</p>
+                  <button onClick={() => setNavSearch('')} className="text-sm font-semibold hover:opacity-70" style={{ color: 'var(--accent)' }}>Aramayı temizle</button>
+                </div>
+              )}
+              {finalRests.map(r => {
                 const distKm = selectedAddress
                   ? haversineKm(selectedAddress.lat, selectedAddress.lng, r.locationLat, r.locationLng)
                   : null

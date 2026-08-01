@@ -41,6 +41,8 @@ export default function RestaurantPage() {
   const [showMenuForm, setShowMenuForm]   = useState(false)
   const [editingItem, setEditingItem]     = useState<MenuItem | null>(null)
   const [menuError, setMenuError]         = useState('')
+  const [menuImageUploading, setMenuImageUploading] = useState(false)
+  const menuImageInputRef = useRef<HTMLInputElement>(null)
   const [menuForm, setMenuForm] = useState({
     name: '', description: '', price: '', category: '', imageUrl: '', isAvailable: true,
   })
@@ -626,18 +628,43 @@ export default function RestaurantPage() {
                         />
                       </div>
 
-                      {/* Görsel URL + Önizleme */}
+                      {/* Görsel — Cloudinary Upload veya URL */}
                       <div>
-                        <label style={{ display:'block', fontSize:'13px', fontWeight:600, color:'#271815', marginBottom:'6px' }}>Görsel URL</label>
+                        <label style={{ display:'block', fontSize:'13px', fontWeight:600, color:'#271815', marginBottom:'6px' }}>Görsel</label>
+                        {/* Gizli file input */}
+                        <input
+                          ref={menuImageInputRef}
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={async e => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            setMenuImageUploading(true)
+                            setMenuError('')
+                            try {
+                              const url = await uploadToCloudinary(file)
+                              setMenuForm(f => ({ ...f, imageUrl: url }))
+                            } catch {
+                              setMenuError('Görsel yüklenemedi. Lütfen tekrar deneyin.')
+                            } finally {
+                              setMenuImageUploading(false)
+                              // input'u temizle ki aynı dosya tekrar seçilebilsin
+                              if (menuImageInputRef.current) menuImageInputRef.current.value = ''
+                            }
+                          }}
+                        />
                         <div style={{ display:'flex', gap:'10px', alignItems:'flex-start' }}>
+                          {/* URL input — Cloudinary yüklenince otomatik dolar, manuel de girilebilir */}
                           <input
                             value={menuForm.imageUrl}
                             onChange={e => setMenuForm(f => ({ ...f, imageUrl: e.target.value }))}
-                            type="url" placeholder="https://..."
+                            type="url" placeholder="https://... veya aşağıdan fotoğraf yükle"
                             style={{ flex:1, border:'1.5px solid #e4beb8', borderRadius:'10px', padding:'10px 14px', fontSize:'14px', color:'#271815', outline:'none', boxSizing:'border-box', backgroundColor:'#fffaf9' }}
                             onFocus={e => { e.target.style.borderColor='#6f0001'; e.target.style.backgroundColor='#fff' }}
                             onBlur={e => { e.target.style.borderColor='#e4beb8'; e.target.style.backgroundColor='#fffaf9' }}
                           />
+                          {/* Önizleme */}
                           {menuForm.imageUrl && (
                             <div style={{ width:'52px', height:'52px', borderRadius:'10px', overflow:'hidden', border:'1.5px solid #e4beb8', flexShrink:0 }}>
                               <img src={menuForm.imageUrl} alt="Önizleme" style={{ width:'100%', height:'100%', objectFit:'cover' }}
@@ -645,6 +672,33 @@ export default function RestaurantPage() {
                             </div>
                           )}
                         </div>
+                        {/* Cloudinary upload butonu */}
+                        <button
+                          type="button"
+                          onClick={() => menuImageInputRef.current?.click()}
+                          disabled={menuImageUploading}
+                          style={{
+                            marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '8px 14px', borderRadius: '8px', border: '1.5px dashed #e4beb8',
+                            backgroundColor: menuImageUploading ? '#f9f0ef' : '#fffaf9',
+                            color: '#6f0001', fontSize: '13px', fontWeight: 600, cursor: menuImageUploading ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s', width: '100%', justifyContent: 'center'
+                          }}
+                          onMouseEnter={e => { if (!menuImageUploading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#fce8e6' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = menuImageUploading ? '#f9f0ef' : '#fffaf9' }}
+                        >
+                          {menuImageUploading ? (
+                            <>
+                              <span className="material-symbols-outlined" style={{ fontSize:'16px', animation:'spin 1s linear infinite' }}>progress_activity</span>
+                              Yükleniyor...
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined" style={{ fontSize:'16px' }}>upload</span>
+                              Fotoğraf Yükle (Cloudinary)
+                            </>
+                          )}
+                        </button>
                       </div>
 
                       {/* Satışta toggle */}
@@ -1053,14 +1107,14 @@ function SettingsTab({ user, handleLogout, restaurantName, restaurantAddress, re
           </div>
           <div>
             {DAYS.map((day, i) => (
-              <div key={day} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'10px 0', borderBottom: i < DAYS.length-1 ? '1px solid #fff0ee' : 'none', opacity: dayOpen[i] ? 1 : 0.45 }}>
-                <span style={{ width:'88px', fontSize:'14px', fontWeight:600, color:'#271815', flexShrink:0 }}>{day}</span>
-                <div style={{ flex:1, display:'flex', alignItems:'center', gap:'8px', justifyContent:'center' }}>
+              <div key={day} style={{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 0', borderBottom: i < DAYS.length-1 ? '1px solid #fff0ee' : 'none', opacity: dayOpen[i] ? 1 : 0.45 }}>
+                <span style={{ width:'80px', minWidth:'80px', fontSize:'14px', fontWeight:600, color:'#271815', flexShrink:0 }}>{day}</span>
+                <div style={{ flex:1, display:'flex', alignItems:'center', gap:'6px', minWidth:0, overflow:'hidden' }}>
                   {dayOpen[i] ? (
                     <>
-                      <input type="time" defaultValue="09:00" style={{ border:'1px solid #e4beb8', borderRadius:'8px', padding:'6px 10px', fontSize:'13px', color:'#271815', outline:'none' }} />
-                      <span style={{ color:'#5b403c', fontSize:'13px' }}>—</span>
-                      <input type="time" defaultValue="23:00" style={{ border:'1px solid #e4beb8', borderRadius:'8px', padding:'6px 10px', fontSize:'13px', color:'#271815', outline:'none' }} />
+                      <input type="time" defaultValue="09:00" style={{ border:'1px solid #e4beb8', borderRadius:'8px', padding:'6px 8px', fontSize:'13px', color:'#271815', outline:'none', minWidth:0, flex:1 }} />
+                      <span style={{ color:'#5b403c', fontSize:'13px', flexShrink:0 }}>—</span>
+                      <input type="time" defaultValue="23:00" style={{ border:'1px solid #e4beb8', borderRadius:'8px', padding:'6px 8px', fontSize:'13px', color:'#271815', outline:'none', minWidth:0, flex:1 }} />
                     </>
                   ) : (
                     <span style={{ fontSize:'13px', color:'#5b403c', fontStyle:'italic' }}>Kapalı</span>
