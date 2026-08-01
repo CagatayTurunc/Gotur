@@ -899,6 +899,111 @@ export default function HomePage() {
         @keyframes dropIn  { from{opacity:0;transform:translateY(-8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
         @keyframes scaleUp { from{opacity:0;transform:scale(0.95) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
       `}</style>
+
+      {/* ── FOOTER ── */}
+      <footer className="mt-16 border-t" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+
+        {/* Üst alan — linkler */}
+        <div className="max-w-7xl mx-auto px-4 md:px-12 py-10 grid grid-cols-2 md:grid-cols-4 gap-8">
+
+          {/* Sütun 1 — Götür */}
+          <div className="col-span-2 md:col-span-1">
+            <span className="text-2xl font-black italic" style={{ color: 'var(--accent)' }}>Götür</span>
+            <p className="text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              Yemekten markete, kapınıza kadar hızlı teslimat. Türkiye'nin lezzet platformu.
+            </p>
+            <div className="flex gap-3 mt-4">
+              {[
+                { icon: 'M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z', label: 'Twitter/X' },
+                { icon: 'M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z', label: 'Instagram' },
+                { icon: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z', label: 'Facebook' },
+              ].map(s => (
+                <button key={s.label} className="w-8 h-8 rounded-full flex items-center justify-center transition-opacity hover:opacity-70"
+                  style={{ backgroundColor: 'var(--bg-muted)' }}>
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" style={{ color: 'var(--text-secondary)' }}>
+                    <path d={s.icon} />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sütun 2 — Hizmetler */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Hizmetler</h4>
+            <ul className="space-y-2.5">
+              {['Restoran Siparişi', 'Al Götür', 'Market', 'Restoran Ortağımız Olun', 'Kurye Ol'].map(l => (
+                <li key={l}>
+                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}
+                    onClick={() => l === 'Restoran Ortağımız Olun' ? navigate('/partner/apply') : undefined}>
+                    {l}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Sütun 3 — Yardım */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Destek</h4>
+            <ul className="space-y-2.5">
+              {['Yardım Merkezi', 'Sık Sorulan Sorular', 'İletişim', 'Sipariş Takibi', 'Uygulamamızı İndir'].map(l => (
+                <li key={l}>
+                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}>{l}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Sütun 4 — Yasal */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-primary)' }}>Yasal</h4>
+            <ul className="space-y-2.5">
+              {[
+                'Kullanım Koşulları',
+                'Gizlilik Politikası',
+                'Çerez Politikası',
+                'KVKK Aydınlatma Metni',
+                'Kişisel Veri Talebi',
+                'Bilgi Toplumu Hizmetleri',
+              ].map(l => (
+                <li key={l}>
+                  <button className="text-sm hover:opacity-70 transition-opacity text-left" style={{ color: 'var(--text-secondary)' }}>{l}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Mutfak kategorileri */}
+        <div className="border-t max-w-7xl mx-auto px-4 md:px-12 py-6" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-primary)' }}>Mutfaklar</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {['Kebap & Izgara', 'Pizza', 'Burger', 'Döner', 'Pide & Lahmacun', 'Deniz Ürünleri', 'Tatlı & Pastane',
+              'Kahvaltı', 'Sağlıklı', 'Vegan', 'Fast Food', 'Tavuk', 'Dünya Mutfağı', 'Çorba', 'Balık'].map(cat => (
+              <button key={cat} className="text-xs hover:opacity-70 transition-opacity" style={{ color: 'var(--text-secondary)' }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Alt bar — copyright */}
+        <div className="border-t" style={{ borderColor: 'var(--border)' }}>
+          <div className="max-w-7xl mx-auto px-4 md:px-12 py-4 flex flex-col md:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-black italic" style={{ color: 'var(--accent)' }}>Götür</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                © {new Date().getFullYear()} Götür Teknoloji A.Ş. Tüm hakları saklıdır.
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>🇹🇷 Türkiye</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>v1.0.0</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
