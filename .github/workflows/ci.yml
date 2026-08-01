@@ -237,5 +237,5 @@ jobs:
             git pull origin main
             kubectl rollout restart deployment/gotur-api -n gotur
             kubectl rollout restart deployment/gotur-frontend -n gotur
-            kubectl rollout status deployment/gotur-api -n gotur --timeout=120s
-            kubectl rollout status deployment/gotur-frontend -n gotur --timeout=120s
+            kubectl rollout status deployment/gotur-api -n gotur --timeout=300s
+            kubectl rollout status deployment/gotur-frontend -n gotur --timeout=300s
