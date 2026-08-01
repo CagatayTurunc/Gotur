@@ -424,33 +424,86 @@ export default function HomePage() {
 
       {/* Main */}
       {activeTab !== 'restaurants' ? (
-        <div className="max-w-7xl mx-auto px-4 md:px-12 min-h-[65vh] flex flex-col items-center justify-center gap-6 text-center py-16">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1.5px solid var(--border)' }}>
-            <span className="material-symbols-outlined text-[40px]" style={{ color: 'var(--accent)' }}>
-              {activeTab === 'pickup' ? 'directions_walk' : 'shopping_cart'}
-            </span>
+        <div className="max-w-7xl mx-auto px-4 md:px-12 py-16 md:py-24">
+          {/* Hero Section */}
+          <div className="flex flex-col items-center text-center gap-6 mb-16">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-lg"
+                style={{ backgroundColor: 'var(--accent)', background: 'linear-gradient(135deg, var(--accent), #c0392b)' }}>
+                <span className="material-symbols-outlined text-[48px] text-white"
+                  style={{ fontVariationSettings: "'FILL' 1" }}>
+                  {activeTab === 'pickup' ? 'directions_walk' : 'shopping_basket'}
+                </span>
+              </div>
+              <span className="absolute -top-2 -right-2 text-xs font-bold px-2.5 py-1 rounded-full text-white shadow-sm"
+                style={{ backgroundColor: '#f59e0b' }}>
+                Yakında
+              </span>
+            </div>
+            <div className="flex flex-col gap-3 max-w-lg">
+              <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                {activeTab === 'pickup' ? 'Al Götür' : 'Götür Market'}
+              </h1>
+              <p className="text-base md:text-lg leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                {activeTab === 'pickup'
+                  ? 'Siparişini ver, hazır olunca gel al. Sıra bekleme, soğuma yok.'
+                  : 'Taze meyve sebzeden temel ihtiyaçlara, dakikalar içinde kapında.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveTab('restaurants')}
+              className="flex items-center gap-2 text-sm font-semibold px-8 py-3.5 rounded-full text-white transition-all hover:opacity-85 hover:scale-[1.02] shadow-md"
+              style={{ backgroundColor: 'var(--accent)' }}>
+              <span className="material-symbols-outlined text-[18px]">restaurant</span>
+              Restoranlara Göz At
+            </button>
           </div>
-          <div className="flex flex-col gap-3 max-w-sm">
-            <h2 className="text-3xl font-black" style={{ color: 'var(--text-primary)' }}>
-              {activeTab === 'pickup' ? 'Al Götür' : 'Market'}
-            </h2>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {activeTab === 'pickup'
-                ? 'Siparişini hazır olunca gel, sıra beklemeden al. Bu özellik yakında burada olacak.'
-                : 'Temel ihtiyaçlardan taze ürünlere, kapına kadar market alışverişi. Çok yakında.'}
-            </p>
+
+          {/* Feature Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
+            {(activeTab === 'pickup' ? [
+              { icon: 'timer',           title: 'Hazır Olunca Bildir',  desc: 'Siparişin hazırlandığında anında bildirim alırsın.' },
+              { icon: 'queue',           title: 'Sıra Yok',             desc: 'Kasada bekleme olmadan direkt teslim al.' },
+              { icon: 'savings',         title: 'Daha Ucuz',            desc: 'Teslimat ücreti olmadan daha avantajlı fiyatlar.' },
+            ] : [
+              { icon: 'bolt',            title: 'Hızlı Teslimat',       desc: '30 dakikada kapına kadar market alışverişi.' },
+              { icon: 'eco',             title: 'Taze Ürünler',         desc: 'Günlük taze meyve, sebze ve soğuk ürünler.' },
+              { icon: 'local_offer',     title: 'Özel Fırsatlar',       desc: 'Market ürünlerinde haftalık kampanyalar.' },
+            ]).map(card => (
+              <div key={card.title}
+                className="flex flex-col gap-3 p-6 rounded-2xl border transition-all hover:shadow-md"
+                style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--accent-soft)' }}>
+                  <span className="material-symbols-outlined text-[22px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>
+                    {card.icon}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-bold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>{card.title}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{card.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <span className="text-xs font-semibold px-5 py-1.5 rounded-full border"
-            style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', backgroundColor: 'var(--bg-muted)' }}>
-            Yakında
-          </span>
-          <button
-            onClick={() => setActiveTab('restaurants')}
-            className="text-sm font-semibold px-8 py-3 rounded-full text-white transition-opacity hover:opacity-80"
-            style={{ backgroundColor: 'var(--accent)' }}>
-            Restoranlara Dön
-          </button>
+
+          {/* Bottom CTA */}
+          <div className="flex flex-col items-center gap-4 mt-16 p-8 rounded-3xl max-w-xl mx-auto border"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+            <span className="material-symbols-outlined text-[32px]" style={{ color: 'var(--accent)', fontVariationSettings: "'FILL' 1" }}>notifications</span>
+            <div className="text-center">
+              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
+                {activeTab === 'pickup' ? 'Al Götür yakında açılıyor' : 'Götür Market çok yakında'}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Hazır olduğunda seni haberdar edeceğiz.
+              </p>
+            </div>
+            <button className="text-xs font-semibold px-6 py-2.5 rounded-full border transition-all hover:opacity-80"
+              style={{ borderColor: 'var(--accent)', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)' }}>
+              Beni Haberdar Et
+            </button>
+          </div>
         </div>
       ) : (
       <main className="max-w-7xl mx-auto px-4 md:px-12 py-6 grid grid-cols-1 md:grid-cols-12 gap-6">

@@ -121,6 +121,18 @@ export default function RestaurantDetailPage() {
   const [activeCategory, setActiveCategory] = useState<string>('')
   const categoryRefs = useRef<Record<string, HTMLElement | null>>({})
 
+  // ── Kullanıcı menüsü ─────────────────────────────────────────────────────────
+  const [userMenu,   setUserMenu]   = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setUserMenu(false)
+    }
+    if (userMenu) document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [userMenu])
+
   // ── Favori ───────────────────────────────────────────────────────────────────
   const [isFav,      setIsFav]      = useState(false)
   const [favLoading, setFavLoading] = useState(false)
@@ -320,7 +332,18 @@ export default function RestaurantDetailPage() {
     })
   }
 
-  const handleLogout = () => { authService.logout(); navigate('/login') }
+  const handleLogout = () => { setUserMenu(false); authService.logout(); navigate('/') }
+
+  const roleLabel: Record<string, string> = {
+    customer: 'Müşteri', courier: 'Kurye', admin: 'Admin', restaurant: 'Restoran',
+  }
+
+  const navMenuItems = [
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>), label: 'Cüzdan', action: () => { setUserMenu(false); navigate('/wallet') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>), label: 'Önceki Siparişlerim', action: () => { setUserMenu(false); navigate('/orders') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>), label: 'Hesabım', action: () => { setUserMenu(false); navigate('/account') } },
+    { icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4" style={{ color: 'var(--text-muted)' }}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>), label: 'Yardım Merkezi', action: () => { setUserMenu(false) } },
+  ]
 
   // ── Kategori scroll ───────────────────────────────────────────────────────────
   const scrollToCategory = (cat: string) => {
@@ -345,49 +368,103 @@ export default function RestaurantDetailPage() {
       style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
 
       {/* ── HEADER ── */}
-      <header className="border-b sticky top-0 z-50 shadow-sm transition-colors"
-        style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--border)' }}>
-        <div className="max-w-[1280px] mx-auto px-4 md:px-12 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <button onClick={() => navigate('/')} className="text-2xl font-black italic tracking-tight transition-opacity hover:opacity-70" style={accentStyle}>
-              Götür
+      <header className="sticky top-0 z-50 shadow-sm border-b" style={{ backgroundColor: 'var(--nav-bg)', borderColor: 'var(--border)' }}>
+        <div className="max-w-7xl mx-auto px-4 md:px-12 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-start">
+            <button onClick={() => navigate('/')} className="text-2xl font-black italic tracking-tight" style={{ color: 'var(--accent)' }}>Götür</button>
+            <button onClick={openPicker} className="flex items-center gap-1 text-sm hover:opacity-70 transition-opacity flex-1 md:flex-none justify-center md:justify-start" style={{ color: 'var(--text-primary)' }}>
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0" style={{ color: 'var(--accent)' }}>location_on</span>
+              <span className="font-semibold truncate max-w-[180px] md:max-w-[200px]">
+                {selectedAddress ? selectedAddress.fullAddress.split(',')[0] : 'Teslimat Adresi Seçin'}
+              </span>
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0">expand_more</span>
             </button>
-            <div className="hidden md:flex items-center rounded-full px-4 py-2 max-w-xs" style={{ backgroundColor: 'var(--bg-muted)' }}>
-              <span className="material-symbols-outlined mr-2 text-[20px]" style={secondaryStyle}>search</span>
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-80">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" style={{ color: 'var(--text-muted)' }}>search</span>
               <input
-                className="bg-transparent border-none focus:ring-0 text-sm w-full outline-none"
-                style={primaryStyle}
+                className="w-full pl-10 pr-4 py-2.5 rounded-full border text-sm outline-none transition-all"
+                style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                 placeholder="Menüde Ara"
                 value={menuSearch}
                 onChange={e => setMenuSearch(e.target.value)}
               />
               {menuSearch && (
-                <button onClick={() => setMenuSearch('')} style={secondaryStyle}>
+                <button onClick={() => setMenuSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               )}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <span className="hidden md:block text-sm font-medium" style={secondaryStyle}>{user.fullName}</span>
-                <button onClick={handleLogout} className="text-sm font-semibold px-4 py-2 rounded-full border hover:opacity-70 transition-opacity"
-                  style={{ ...secondaryStyle, borderColor: 'var(--border)' }}>Çıkış</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => navigate('/login')} className="text-sm font-semibold px-4 py-2 rounded-full hover:opacity-70 transition-opacity" style={secondaryStyle}>Giriş Yap</button>
-                <button onClick={() => navigate('/login')} className="text-sm font-semibold text-white px-4 py-2 rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--accent)' }}>Kayıt Ol</button>
-              </>
-            )}
-            <ThemeToggle />
-            {cartCount > 0 && (
-              <button className="relative p-2 hover:opacity-70 transition-opacity" style={secondaryStyle}>
-                <span className="material-symbols-outlined">shopping_bag</span>
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 text-white text-[10px] font-bold rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>{cartCount}</span>
-              </button>
-            )}
+            <div className="hidden md:flex items-center gap-2">
+              {user ? (
+                <div className="relative" ref={menuRef}>
+                  <button onClick={() => setUserMenu(o => !o)} className="flex items-center gap-2 px-3 py-2 rounded-full transition-colors select-none hover:opacity-80" style={{ color: 'var(--text-primary)' }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
+                      {user.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-semibold">{user.fullName}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>
+                      {roleLabel[user.role] ?? user.role}
+                    </span>
+                    <span className="material-symbols-outlined text-[18px]" style={{ color: 'var(--text-muted)', transform: userMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>expand_more</span>
+                  </button>
+
+                  {userMenu && (
+                    <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setUserMenu(false)} />
+                  )}
+                  {userMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.15)] z-50 overflow-hidden"
+                      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                      <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0" style={{ backgroundColor: 'var(--accent)' }}>
+                            {user.fullName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{user.fullName}</p>
+                            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-white text-xs font-semibold" style={{ backgroundColor: 'var(--accent)' }}>
+                          <span>{roleLabel[user.role] ?? user.role}</span>
+                        </div>
+                      </div>
+                      <ul className="py-1.5">
+                        {navMenuItems.map(item => (
+                          <li key={item.label}>
+                            <button onClick={item.action} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:opacity-80" style={{ color: 'var(--text-primary)' }}>
+                              <span className="flex-shrink-0 flex items-center justify-center w-5">{item.icon}</span>
+                              <span>{item.label}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
+                        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-colors" style={{ color: '#ef4444' }}>
+                          <span className="flex-shrink-0 flex items-center justify-center w-5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-4 h-4"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                          </span>
+                          <span>Çıkış yap</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => navigate('/login')} className="text-sm font-semibold px-4 py-2 rounded-full hover:opacity-70 transition-opacity" style={{ color: 'var(--text-secondary)' }}>Giriş Yap</button>
+                  <button onClick={() => navigate('/login')} className="text-sm font-semibold text-white px-4 py-2 rounded-full hover:opacity-80 transition-opacity" style={{ backgroundColor: 'var(--accent)' }}>Kayıt Ol</button>
+                </>
+              )}
+              <ThemeToggle />
+              {cartCount > 0 && (
+                <button className="relative p-2 hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
+                  <span className="material-symbols-outlined">shopping_bag</span>
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 text-white text-[10px] font-bold rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>{cartCount}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
