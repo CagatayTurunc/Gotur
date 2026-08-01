@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using GetirReplica.API.Extensions;
 using GetirReplica.API.Models.DTOs.Auth;
 using GetirReplica.API.Models.Entities;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GetirReplica.API.Controllers;
@@ -24,17 +26,20 @@ public class AuthController : ControllerBase
     private readonly SignInManager<AppUser> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IConfiguration _config;
+    private readonly IEmailService _emailService;
 
     public AuthController(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
         ITokenService tokenService,
-        IConfiguration config)
+        IConfiguration config,
+        IEmailService emailService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
         _config = config;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -241,5 +246,77 @@ public class AuthController : ControllerBase
             ExpiresAt: DateTime.UtcNow.AddMinutes(480),
             User: new UserInfoDto(user.Id, user.Email!, user.FullName, user.Role)
         ));
+    }
+
+    /// <summary>
+    /// Şifremi unuttum — kullanıcının e-posta adresine sıfırlama bağlantısı gönderir.
+    /// Kullanıcı bulunamasa bile 200 döner (timing attack koruması).
+    /// </summary>
+    /// <response code="200">Mail gönderildi (veya kullanıcı bulunamadı — güvenlik gereği aynı yanıt).</response>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+
+        // Kullanıcı yoksa veya silinmişse sessizce 200 döndür — e-posta enumeration önleme
+        if (user is null || user.IsDeleted)
+            return Ok(new { message = "Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi." });
+
+        // Identity'nin yerleşik token jeneratörü — DataProtection ile imzalanmış, 30 dk geçerli
+        var rawToken  = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var encoded   = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(rawToken));
+
+        var frontendBase = _config["Frontend:BaseUrl"] ?? "http://localhost:5173";
+        var resetLink = $"{frontendBase}/reset-password?email={Uri.EscapeDataString(dto.Email)}&token={encoded}";
+
+        try
+        {
+            await _emailService.SendPasswordResetEmailAsync(user.Email!, user.FullName, resetLink);
+        }
+        catch (Exception ex)
+        {
+            // Mail gönderimi başarısız olsa bile kullanıcıya aynı mesajı ver
+            // ama sunucu tarafında logla
+            HttpContext.RequestServices
+                .GetRequiredService<ILogger<AuthController>>()
+                .LogError(ex, "Şifre sıfırlama maili gönderilemedi: {Email}", dto.Email);
+        }
+
+        return Ok(new { message = "Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi." });
+    }
+
+    /// <summary>
+    /// Şifre sıfırlama — e-posta linkindeki token ve yeni şifreyle şifreyi günceller.
+    /// </summary>
+    /// <response code="200">Şifre güncellendi.</response>
+    /// <response code="400">Token geçersiz veya süresi dolmuş.</response>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        var user = await _userManager.FindByEmailAsync(dto.Email);
+        if (user is null || user.IsDeleted)
+            return BadRequest(new { message = "Geçersiz istek." });
+
+        string rawToken;
+        try
+        {
+            rawToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token));
+        }
+        catch
+        {
+            return BadRequest(new { message = "Geçersiz token formatı." });
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, rawToken, dto.NewPassword);
+        if (!result.Succeeded)
+        {
+            var firstError = result.Errors.FirstOrDefault();
+            return BadRequest(new { message = firstError?.Description ?? "Şifre sıfırlanamadı. Token geçersiz veya süresi dolmuş olabilir." });
+        }
+
+        return Ok(new { message = "Şifreniz başarıyla güncellendi. Giriş yapabilirsiniz." });
     }
 }

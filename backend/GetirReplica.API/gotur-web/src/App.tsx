@@ -28,6 +28,7 @@ import FaqPage from './pages/FaqPage'
 import ContactPage from './pages/ContactPage'
 import OrderTrackingInfoPage from './pages/OrderTrackingInfoPage'
 import DownloadAppPage from './pages/DownloadAppPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 // Giriş yapılmamışsa login'e yönlendir
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -138,6 +139,7 @@ export default function App() {
         <Route path="/iletisim" element={<ContactPage />} />
         <Route path="/siparis-takibi" element={<OrderTrackingInfoPage />} />
         <Route path="/uygulamayi-indir" element={<DownloadAppPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
           </BrowserRouter>

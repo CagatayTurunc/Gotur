@@ -101,6 +101,7 @@ builder.Services.AddApiRateLimiting();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // ── CORS (React frontend için) ────────────────────────────────────────────────
 builder.Services.AddCors(options =>

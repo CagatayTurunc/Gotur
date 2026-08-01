@@ -22,6 +22,14 @@ export const authService = {
     return res.data
   },
 
+  async forgotPassword(email: string): Promise<void> {
+    await api.post('/auth/forgot-password', { email })
+  },
+
+  async resetPassword(email: string, token: string, newPassword: string): Promise<void> {
+    await api.post('/auth/reset-password', { email, token, newPassword })
+  },
+
   saveSession(auth: AuthResponse) {
     localStorage.setItem('token', auth.token)
     localStorage.setItem('user', JSON.stringify(auth.user))

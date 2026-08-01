@@ -54,6 +54,7 @@ tests/load/results/
 # appsettings.json is committed as a TEMPLATE (no real secrets).
 # Copy appsettings.json → appsettings.Local.json for local overrides.
 appsettings.Local.json
+appsettings.Development.json
 appsettings.Production.json
 *.local.json
 secrets.json

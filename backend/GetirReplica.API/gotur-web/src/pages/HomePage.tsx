@@ -53,7 +53,7 @@ const roleLabel: Record<string, string> = { customer: 'Müşteri', courier: 'Kur
 const roleIcon:  Record<string, string>  = { customer: '🛒', courier: '🛵', admin: '🔧', restaurant: '🍽️' }
 
 interface LocationState { openLogin?: boolean; returnTo?: string }
-type AuthMode = 'login' | 'register'
+type AuthMode = 'login' | 'register' | 'forgot'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -106,6 +106,11 @@ export default function HomePage() {
   const [authError,     setAuthError]     = useState('')
   const [showTestAccts, setShowTestAccts] = useState(false)
   const [showAuthPass,  setShowAuthPass]  = useState(false)
+  // Şifremi Unuttum
+  const [forgotEmail,   setForgotEmail]   = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotSent,    setForgotSent]    = useState(false)
+  const [forgotError,   setForgotError]   = useState('')
 
   useEffect(() => {
     const state = location.state as LocationState | null
@@ -147,8 +152,12 @@ export default function HomePage() {
     setAuthMode(mode)
     setAuthEmail(''); setAuthPass(''); setAuthName(''); setAuthRole('customer')
     setAuthError(''); setShowTestAccts(false); setShowAuthPass(false); setAuthOpen(true)
+    setForgotEmail(''); setForgotSent(false); setForgotError('')
   }
-  const closeAuth = () => { setAuthOpen(false); setAuthError(''); setShowTestAccts(false) }
+  const closeAuth = () => {
+    setAuthOpen(false); setAuthError('')
+    setShowTestAccts(false); setForgotSent(false); setForgotError('')
+  }
 
   // Google OAuth — credential (id_token) ile backend doğrulaması
   const handleGoogleCredential = async (credentialResponse: { credential?: string }) => {
@@ -226,6 +235,20 @@ export default function HomePage() {
         setAuthError(data?.message ?? 'Bir hata oluştu. Lütfen tekrar deneyin.')
       }
     } finally { setAuthLoading(false) }
+  }
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotError('')
+    setForgotLoading(true)
+    try {
+      await authService.forgotPassword(forgotEmail)
+      setForgotSent(true)
+    } catch {
+      setForgotError('Bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setForgotLoading(false)
+    }
   }
 
   // Gerçek restoranlar + mock'lar birleştirilir
@@ -798,9 +821,10 @@ export default function HomePage() {
             {/* Sağ — Form */}
             <div className="flex-1 p-8 md:p-12 flex flex-col justify-center overflow-y-auto">
               <div className="mb-7">
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{authMode === 'login' ? 'Tekrar Hoş Geldin' : 'Hesap Oluştur'}</h3>
-                <p className="text-sm text-gray-500">{authMode === 'login' ? 'Devam etmek için giriş yap.' : 'Ücretsiz kayıt ol, hemen sipariş ver.'}</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-1">{authMode === 'login' ? 'Tekrar Hoş Geldin' : authMode === 'register' ? 'Hesap Oluştur' : 'Şifreni Mi Unuttun?'}</h3>
+                <p className="text-sm text-gray-500">{authMode === 'login' ? 'Devam etmek için giriş yap.' : authMode === 'register' ? 'Ücretsiz kayıt ol, hemen sipariş ver.' : 'E-posta adresini gir, sıfırlama bağlantısı gönderelim.'}</p>
               </div>
+              {authMode !== 'forgot' && (
               <div className="flex flex-col gap-3 mb-5">
                 <div className="w-full flex justify-center">
                   <GoogleLogin
@@ -820,9 +844,74 @@ export default function HomePage() {
                   Facebook ile devam et (Yakında)
                 </button>
               </div>
+              )}
+              {authMode !== 'forgot' && (
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-gray-200" /><span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">veya</span><div className="flex-1 h-px bg-gray-200" />
               </div>
+              )}
+
+              {/* Şifremi Unuttum Formu */}
+              {authMode === 'forgot' && (
+                <>
+                  {!forgotSent ? (
+                    <form onSubmit={handleForgotSubmit} className="flex flex-col gap-3">
+                      <input
+                        required
+                        type="email"
+                        value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        placeholder="Kayıtlı e-posta adresiniz"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-[#9a0002] focus:border-[#9a0002] outline-none transition-all text-gray-900 placeholder:text-gray-400"
+                      />
+                      {forgotError && (
+                        <div className="px-4 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm">{forgotError}</div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={forgotLoading}
+                        className="w-full bg-[#9a0002] hover:bg-[#7a0001] text-white py-3.5 rounded-full text-sm font-bold transition-all shadow-md active:scale-[0.98] disabled:opacity-60 mt-1"
+                      >
+                        {forgotLoading ? 'Gönderiliyor...' : 'Sıfırlama Bağlantısı Gönder'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('login')}
+                        className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors py-1"
+                      >
+                        ← Giriş ekranına dön
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="text-center py-4">
+                      <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                        <span className="material-symbols-outlined text-[32px] text-green-500" style={{ fontVariationSettings: "'FILL' 1" }}>mark_email_read</span>
+                      </div>
+                      <h4 className="text-base font-bold text-gray-900 mb-2">Mail Yolda!</h4>
+                      <p className="text-sm text-gray-500 leading-relaxed mb-1">
+                        <span className="font-semibold text-gray-700">{forgotEmail}</span> adresine şifre sıfırlama bağlantısı gönderdik.
+                      </p>
+                      <p className="text-xs text-gray-400 mb-6">Bağlantı 30 dakika geçerlidir. Spam klasörünü de kontrol etmeyi unutma.</p>
+                      <button
+                        type="button"
+                        onClick={() => { setForgotSent(false); setForgotError('') }}
+                        className="text-xs text-[#9a0002] font-semibold hover:underline mb-3 block w-full"
+                      >
+                        Farklı bir adres dene
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('login')}
+                        className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors py-1"
+                      >
+                        ← Giriş ekranına dön
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              {/* Giriş / Kayıt Formu */}
+              {authMode !== 'forgot' && (
               <form onSubmit={handleAuthSubmit} className="flex flex-col gap-3">
                 {authMode === 'register' && (
                   <input required type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="Ad Soyad"
@@ -852,7 +941,7 @@ export default function HomePage() {
                       <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-[#9a0002] focus:ring-[#9a0002]" />
                       <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">Beni hatırla</span>
                     </label>
-                    <button type="button" className="text-xs text-[#9a0002] font-semibold hover:underline">Şifremi unuttum</button>
+                    <button type="button" className="text-xs text-[#9a0002] font-semibold hover:underline" onClick={() => { setAuthMode('forgot'); setForgotEmail(authEmail); setForgotSent(false); setForgotError('') }}>Şifremi unuttum</button>
                   </div>
                 )}
                 {authError && <div className="px-4 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm">{authError}</div>}
@@ -890,6 +979,7 @@ export default function HomePage() {
               <button type="button" onClick={closeAuth} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors mt-2 py-1">
                 Kayıt olmadan devam et
               </button>
+              )}
             </div>
           </div>
         </div>
