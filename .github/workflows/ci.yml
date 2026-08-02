@@ -180,6 +180,7 @@ jobs:
       - name: Run k6 smoke profile
         run: |
           sleep 15
+          mkdir -p tests/load/results
           chmod 777 tests/load/results
           # Login endpoint'ini manuel test et — k6 öncesi doğrulama
           echo "=== Login endpoint manuel test ==="
@@ -189,7 +190,6 @@ jobs:
             -d '{"email":"ahmet.yilmaz@gotur.com","password":"Test123!"}' | tail -5
           echo ""
           echo "=== k6 smoke testi başlıyor ==="
-          mkdir -p tests/load/results
           docker run --rm --network host \
             -e BASE_URL=http://127.0.0.1:5131 \
             -e PROFILE=smoke \
