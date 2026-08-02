@@ -14,6 +14,8 @@ public class Courier
     public DateTime? LastLocationAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public decimal TotalEarnings { get; set; } = 0m;
+
     public AppUser User { get; set; } = null!;
     public ICollection<Order> Orders { get; set; } = new List<Order>();
     public ICollection<CourierLocationHistory> LocationHistory { get; set; } = new List<CourierLocationHistory>();

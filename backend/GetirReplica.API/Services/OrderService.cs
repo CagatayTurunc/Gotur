@@ -156,7 +156,10 @@ public class OrderService : IOrderService
             case OrderStatus.Delivered:
                 order.DeliveredAt = now;
                 if (order.Courier != null)
+                {
                     order.Courier.Status = CourierStatus.Available;
+                    order.Courier.TotalEarnings += 50m; // Sabit teslimat ücreti
+                }
                 break;
         }
 

@@ -27,6 +27,24 @@ public class CouriersController : ControllerBase
         _db = db;
         _orderService = orderService;
     }
+    [HttpGet("me")]
+    [Authorize(Roles = "courier")]
+    public async Task<IActionResult> GetMe()
+    {
+        var courierId = await GetCurrentCourierIdAsync();
+        if (courierId == Guid.Empty) return NotFound(new { message = "Kurye profili bulunamadı." });
+
+        var courier = await _db.Couriers.Include(c => c.User).FirstOrDefaultAsync(c => c.Id == courierId);
+        if (courier == null) return NotFound();
+
+        return Ok(new
+        {
+            id = courier.Id,
+            fullName = courier.User.FullName,
+            status = courier.Status.ToString(),
+            totalEarnings = courier.TotalEarnings
+        });
+    }
 
     /// <summary>
     /// Kuryenin anlık GPS konumunu günceller. Rate limit: 3sn.
