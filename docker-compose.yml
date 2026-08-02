@@ -48,6 +48,9 @@ services:
       - Jwt__Issuer=GetirReplicaAPI
       - Jwt__Audience=GetirReplicaClient
       - Jwt__ExpiryMinutes=480
+      # CI'da Jaeger yoktur; OTLP bağlantı denemeleri startup'ı yavaşlatır.
+      # Bu değişken ortam tarafından override edilebilir (CI: true, prod: false).
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
       - Frontend__BaseUrl=https://gotur.site
       - Smtp__Host=smtp.gmail.com
       - Smtp__Port=587

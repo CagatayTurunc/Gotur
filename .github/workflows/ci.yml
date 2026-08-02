@@ -149,20 +149,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --build: her CI'da fresh image. api servisi kendi /health/ready'ini geçene
-      # kadar depends_on beklediği için burada ayrıca curl döngüsüne gerek yok.
+      # --build: her CI'da fresh image.
+      # OTEL_SDK_DISABLED=true: CI'da Jaeger yok, OTLP bağlantı retry'ları
+      # startup'ı geciktiriyor. Sadece bu job için OpenTelemetry'yi kapat.
       - name: Start API stack
-        run: docker compose up -d --build postgres redis api
+        run: |
+          docker compose up -d --build postgres redis api
+        env:
+          OTEL_SDK_DISABLED: "true"
 
       # docker compose'un health check'ini bekle.
       # api servisi healthy olmadan devam etme.
+      # 90 deneme × 5 saniye = 7.5 dakika — seed data yüklemesi için yeterli.
       - name: Wait for API to be healthy
         shell: bash
         run: |
           echo "API health check bekleniyor..."
-          for attempt in {1..60}; do
+          for attempt in {1..90}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' gotur-api 2>/dev/null || echo "missing")
-            echo "  Deneme $attempt/60 — container durumu: $STATUS"
+            echo "  Deneme $attempt/90 — container durumu: $STATUS"
             if [ "$STATUS" = "healthy" ]; then
               echo "API hazır."
               exit 0
