@@ -172,9 +172,16 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 // ── Hangfire Dashboard (sadece development) ───────────────────────────────────
+// Hangfire Dashboard — Development ortamında kimlik doğrulamasız erişim.
+// Varsayılan LocalRequestsOnlyAuthorizationFilter, Docker container'dan gelen
+// istekleri asla localhost olarak görmez (bridge network üzerinden gelir).
+// AllowAllDashboardAuthorizationFilter sadece Development'da aktif — prod'da bu blok çalışmaz.
 if (app.Environment.IsDevelopment())
 {
-    app.UseHangfireDashboard("/hangfire");
+    app.UseHangfireDashboard("/hangfire", new Hangfire.DashboardOptions
+    {
+        Authorization = [new AllowAllHangfireFilter()]
+    });
 }
 
 // ── Hangfire Recurring Jobs ───────────────────────────────────────────────────
@@ -271,3 +278,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+/// <summary>
+/// Hangfire Dashboard'u Development ortamında kimlik doğrulamasız açar.
+/// Docker bridge network üzerinden gelen istekler localhost sayılmadığından
+/// varsayılan LocalRequestsOnlyAuthorizationFilter çalışmaz.
+/// Bu filter yalnızca IsDevelopment() bloğunda aktif olduğundan production güvenlidir.
+/// </summary>
+public class AllowAllHangfireFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
+{
+    public bool Authorize(Hangfire.Dashboard.DashboardContext context) => true;
+}
