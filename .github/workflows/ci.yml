@@ -158,17 +158,16 @@ jobs:
         env:
           OTEL_SDK_DISABLED: "true"
 
-      # docker compose'un health check'ini bekle.
-      # api servisi healthy olmadan devam etme.
-      # 90 deneme × 5 saniye = 7.5 dakika — seed data yüklemesi için yeterli.
+      # Doğrudan /health/ready endpoint'ini sorgula.
+      # Container health status bazen gecikebilir; HTTP 200 daha güvenilir.
       - name: Wait for API to be healthy
         shell: bash
         run: |
-          echo "API health check bekleniyor..."
+          echo "API /health/ready bekleniyor..."
           for attempt in {1..90}; do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' gotur-api 2>/dev/null || echo "missing")
-            echo "  Deneme $attempt/90 — container durumu: $STATUS"
-            if [ "$STATUS" = "healthy" ]; then
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5131/health/ready 2>/dev/null || echo "000")
+            echo "  Deneme $attempt/90 — HTTP: $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
               echo "API hazır."
               exit 0
             fi

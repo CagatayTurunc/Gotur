@@ -64,14 +64,14 @@ services:
       redis:
         condition: service_healthy
     # /health/ready; PostgreSQL + Redis bağlantısını doğrular.
-    # CI pipeline bu probe'u bekler; seed data yüklenmeden k6 başlamaz.
-    # aspnet:9.0 image'ında curl yok; wget kullanılır (Debian base'de mevcut).
+    # start_period: seed data + migration süresi için yeterli süre ver.
+    # retries × interval = toplam bekleme: 20 × 15s = 300s (5 dakika)
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/health/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      start_period: 60s
-      retries: 10
+      interval: 15s
+      timeout: 10s
+      start_period: 120s
+      retries: 20
 
   frontend:
     build:
