@@ -179,7 +179,12 @@ jobs:
 
       - name: Run k6 smoke profile
         run: |
+          # Seed data'nın tamamlanması için kısa bir bekleme.
+          # /health/ready sadece DB+Redis bağlantısını doğrular;
+          # seed işlemi arka planda devam ediyor olabilir.
+          sleep 15
           mkdir -p tests/load/results
+          chmod 777 tests/load/results
           docker run --rm --network host \
             -e BASE_URL=http://127.0.0.1:5131 \
             -e PROFILE=smoke \
