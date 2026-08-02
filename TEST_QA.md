@@ -80,6 +80,33 @@ API'nin kendisi tamamen sağlıklı (`curl http://localhost:5131/health/ready` d
 
 ---
 
+## 🟠 Yüksek Öncelikli Bulgu (devam)
+
+### 3b. Seq'e hiç log gitmiyor (Docker'da network hatası)
+
+**Nerede:** `backend/GetirReplica.API/appsettings.Development.json:39`
+
+```json
+"Name": "Seq",
+"Args": { "serverUrl": "http://localhost:5341" }
+```
+
+`ASPNETCORE_ENVIRONMENT=Development` olduğu için docker-compose'daki API container'ı da bu dosyayı kullanıyor. Ama `localhost` container **kendi içini** işaret eder — Seq container'ı (`gotur-seq`) değil. Postgres/Redis bağlantıları `docker-compose.yml`'de `postgres:5432` / `redis:6379` şeklinde doğru override edilmiş, ama Seq URL'i için aynı override yapılmamış.
+
+**Doğrulama:** Seq arayüzü açılıyor (`http://localhost:5341` → 200, UI çalışıyor) ama "No events matched the current search" — API 1+ saattir çalışmasına, onlarca istek almasına rağmen **tek bir log satırı bile Seq'e ulaşmamış**.
+
+**Önerilen aksiyon:** `docker-compose.logging.yml` veya `docker-compose.yml`'de API servisine `Serilog__WriteTo__1__Args__serverUrl=http://seq:5341` (docker-compose.logging.yml'deki servis adıyla) environment override eklenmeli.
+
+### 3c. Hangfire dashboard Docker'da her zaman 401 dönüyor
+
+**Nerede:** `Program.cs:177` — `app.UseHangfireDashboard("/hangfire")` (opsiyon geçilmeden, varsayılan `LocalRequestsOnlyAuthorizationFilter` kullanılıyor)
+
+Bu filtre isteğin `127.0.0.1`'den geldiğini kontrol ediyor. Ama API Docker container'ı içinde çalıştığından, host makineden (tarayıcı veya `curl`) gelen istek container'a Docker bridge network üzerinden ulaşıyor — asla gerçek loopback olarak görünmüyor. Sonuç: `http://localhost:5131/hangfire` **her zaman `401`** dönüyor, hem benim ortamımda hem kullanıcının kendi tarayıcısında (doğrulandı — ikimiz de aynı şeyi yaşadık).
+
+**Önerilen aksiyon:** Development ortamı için özel bir `DashboardOptions { Authorization = [new AllowAllDashboardAuthorizationFilter()] }` (sadece dev/local için) tanımlanmalı.
+
+---
+
 ## 🟡 Orta Öncelikli Bulgular
 
 ### 4. `tests/load/login.js` smoke testi, kendi login rate limitine takılıp başarısız oluyor
@@ -94,7 +121,21 @@ Yani README'de "hızlı kontrol" olarak tarif edilen smoke test, **taze bir loca
 
 **Önerilen aksiyon:** Ya smoke profilinin VU/iterasyon sayısı rate limitin altında tutulmalı, ya da test ortamı için ayrı (daha yüksek) bir rate limit politikası tanımlanmalı, ya da dokümana bu davranış not düşülmeli.
 
-### 5. k6 sonuç dizini repoda yok, özet export'u başarısız oluyor
+### 5b. Kampanya kartları tıklanabilir görünüyor ama işlevsiz
+
+**Nerede:** `HomePage.tsx:653-654` — kampanya kartı `<div>`'i `cursor-pointer` class'ı ve hover animasyonu (`group-hover:scale-105`) taşıyor ama **hiç `onClick` handler'ı yok**. "Sipariş Ver", "Büyük İndirim" gibi bannerlara tıklamak hiçbir şey yapmıyor. Kullanıcının da fark ettiği tam olarak bu.
+
+**Önerilen aksiyon:** Ya bannerlara ilgili sayfaya/restorana yönlendiren bir `onClick` eklenmeli, ya da tıklanamıyorsa `cursor-pointer`/hover efekti kaldırılmalı (görsel olarak yanlış sinyal vermemesi için).
+
+### 5c. Cüzdan (Wallet) sayfası tamamen mock — gerçek siparişlerle bağlantısı yok
+
+**Nerede:** `WalletPage.tsx:14-58` — bakiye (`useState(245.50)`) ve işlem geçmişi (`MOCK_TRANSACTIONS`) tamamen sabit/local state. Hiçbir backend API çağrısı yok. "Bakiye Yükle" butonu çalışıyor gibi görünüyor (toast bildirimi çıkıyor, state güncelleniyor) ama sayfa yenilenince sıfırlanıyor, gerçek sipariş ödemesiyle hiç ilişkilendirilmiyor.
+
+**Etki:** Kullanıcı gerçek bir sipariş verdiğinde cüzdan bakiyesinin değişmemesi bug değil — özellik zaten hiç implemente edilmemiş, sadece UI prototipi var. Demo sırasında bu ayrım net değilse yanıltıcı olabilir.
+
+**Önerilen aksiyon:** Ya "yapım aşamasında" etiketi eklenmeli ya da gerçek bir wallet/payment backend'i (ayrı bir iş) yazılmalı.
+
+### 6. k6 sonuç dizini repoda yok, özet export'u başarısız oluyor
 
 ```
 error msg="Could not save some summary information: could not open 'results/login-summary.json'"
