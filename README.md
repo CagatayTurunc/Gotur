@@ -1,428 +1,410 @@
 # 🛵 Götür — Sipariş Eşleştirme & Kurye Anlık Takip Sistemi
 
-> VBT Yazılım Staj 2026 · StackShare Replica Projesi  
-> Referans sistem: **Getir** (stackshare.io + mühendislik iş ilanları)
+> VBT Yazılım A.Ş. · 2026 Staj Programı · StackShare Replica Projesi
+> Referans sistem: **Getir** (stackshare.io + mühendislik iş ilanları üzerinden analiz edildi)
 
-[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?logo=youtube)](https://youtube.com/TODO)
 [![Live](https://img.shields.io/badge/Live-gotur.site-success?logo=kubernetes)](https://gotur.site)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ---
 
-## 📌 Proje Hakkında
+## Proje Hakkında
 
-Bu proje, Getir'in sipariş eşleştirme ve kurye anlık takip sisteminin MVP klonudur.
-Amaç ürünü birebir kopyalamak değil; **gerçek bir sistemin mimari kararlarını okumak, anlamak ve uygulanabilir bir parçaya indirgemek**.
+Bu proje, Getir'in sipariş eşleştirme ve kurye anlık takip sisteminin çalışan bir MVP klonudur. Amaç Getir'i birebir kopyalamak değil; **gerçek bir sistemin mühendislik kararlarını okumak, her teknoloji seçiminin trade-off'unu belgelemek ve bu kararları uçtan uca çalışan bir sisteme indirgemekti.**
 
-### Çekirdek Akışlar
-1. **Sipariş Eşleştirme**: Sipariş gelir → en yakın uygun kurye bulunur (Haversine) → kurye kabul eder → durum makinesi (Pending → ReadyForPickup → Assigned → Picked → Delivered)
-2. **Anlık Kurye Takibi**: Kuryenin GPS konumu SignalR ile web ve mobil istemcilere gerçek zamanlı iletilir, Leaflet haritasında gösterilir
+Getir'in StackShare sayfası, welcometothejungle.com mühendislik iş ilanları ve AWS blog yazıları incelenerek referans stack belirlendi. Her teknoloji seçimi için "neden bu, neden değil" sorusu cevaplandı ve `ARCHITECTURE.md` belgesinde trade-off analizleriyle birlikte dokümante edildi.
 
----
+### Temel Akışlar
 
-## 🏗️ Mimari
+**Sipariş Eşleştirme** — Sipariş oluşturulur → Haversine formülüyle en yakın müsait kurye hesaplanır → Distributed lock altında atomik atama gerçekleşir → Durum makinesi `Pending → ReadyForPickup → Assigned → Picked → Delivered` üzerinden ilerler.
 
-Detaylı trade-off analizleri için → [ARCHITECTURE.md](./ARCHITECTURE.md)
-
-| Katman | Teknoloji | Getir'de Karşılığı |
-|--------|-----------|-------------------|
-| Backend | ASP.NET Core 9 Web API | Node.js / Java |
-| Veritabanı | PostgreSQL + JSONB | MongoDB |
-| Real-time | SignalR (WebSocket) | WebSockets |
-| Cache / Lock | Redis | Redis ✓ |
-| Background Jobs | Hangfire | RabbitMQ |
-| Frontend | React + Vite + Tailwind | React |
-| Harita | Leaflet + OpenStreetMap | Google Maps |
-| Mobil | Flutter | Kotlin + Swift |
-| Tracing | OpenTelemetry → Jaeger/Tempo | — |
-| Logging | Serilog + Seq | — |
-| Metrics | Prometheus + Grafana | New Relic |
+**Anlık Kurye Takibi** — Kuryenin GPS konumu 3 saniyede bir API'ye iletilir → Redis'e yazılır → SignalR üzerinden tüm bağlı istemcilere push edilir → Leaflet haritasında marker animasyonlu güncellenir.
 
 ---
 
-## ⚙️ Üretim Kalitesi Özellikler
+## Stack ve Getir ile Karşılaştırma
 
-Bu proje bir demo'nun ötesinde; gerçek sistemlerde karşılaşılan sorunlara çözüm üretilmiştir.
-
-### Tier 1 — Kritik Sistem Güvenilirliği
-
-| Özellik | Nerede | Nasıl Çalışır |
-|---------|--------|---------------|
-| **Distributed Lock** | `MatchingService` | Redis `SET NX` ile sipariş başına kilit — aynı kuryeye çift atama önlenir |
-| **Optimistic Concurrency** | `MatchingService.DoFindAndAssign` | Lock altında `freshCourier.Status == Available` çift kontrol — race condition ikinci katman |
-| **Idempotency** | `IdempotencyMiddleware` | `POST /api/orders` — `Idempotency-Key` header ile aynı istek tekrar işlenmez, Redis'te 24sa cache |
-| **Outbox Pattern** | `OutboxProcessor` + `OutboxEvent` | DB yazma + SignalR bildirimi aynı transaction — restart sonrası event kaybolmaz |
-| **Polly Resilience** | `ResilienceExtensions` | Redis için: Timeout(2s) → CircuitBreaker(30s) → Retry(3x exponential) — Redis down ≠ 500 |
-| **OpenTelemetry** | `OpenTelemetryExtensions` | Her isteğe trace-id, EF Core sorgularına kadar taşınır — Jaeger/Tempo ile görselleştirme |
-
-### Tier 2 — Sektör Standardı
-
-| Özellik | Nerede | Nasıl Çalışır |
-|---------|--------|---------------|
-| **Correlation ID** | `CorrelationIdMiddleware` | Her isteğe `X-Correlation-ID` — tüm log satırlarında taşınır, hata takibi için |
-| **Structured Logging** | Serilog + Seq | `CorrelationId`, `UserId`, `OrderId` gibi property'ler ile Seq'te filtreli arama |
-| **Rate Limiting** | `RateLimitingExtensions` | 4 politika: auth(10/dk), orders(5/dk), location(20/dk), api(100/dk) — gateway katmanı |
-| **Secrets Management** | `SecretsExtensions` | Startup'ta placeholder secret tespiti + JWT uzunluk kontrolü — env variable zinciri |
-| **Feature Flags** | `FeatureFlagService` | DB + Redis cache, deterministik %X rollout — `new_matching_algorithm` flag örneği |
-| **Chaos Testing** | `docs/CHAOS_TESTING.md` | Redis/DB down senaryoları, graceful degradation kanıtı, race condition testi |
+| Katman | Getir'de | Götür'de | Neden farklı? |
+|--------|----------|----------|---------------|
+| Backend | Node.js, Java | ASP.NET Core 9 | Kurumsal ekosistem, tip güvenliği, ACID garantisi |
+| Veritabanı | MongoDB | PostgreSQL + JSONB | İlişkisel veri yapısı, JOIN ağırlıklı sorgular |
+| Real-time | WebSockets | SignalR (WebSocket) | Fallback mekanizması, grup yönetimi, .NET native |
+| Cache / Lock | Redis | Redis ✓ | Aynı seçim — konum cache, distributed lock, backplane |
+| Message Queue | RabbitMQ | Hangfire | MVP ölçeği için sıfır ek operasyonel yük |
+| Frontend | React | React + Vite + Tailwind | Aynı — Vite ile çok daha hızlı geliştirme ortamı |
+| Harita | Google Maps | Leaflet + OpenStreetMap | Ücretsiz, açık kaynak, MVP için yeterli |
+| Mobil | Kotlin + Swift | Flutter | Tek codebase ile Android ve iOS |
+| Medya | S3 + CloudFront | Cloudinary | Sıfır altyapı, CDN dahil, presigned URL'e migration hazır |
+| Tracing | — | OpenTelemetry → Jaeger | Distributed trace, EF Core sorguları dahil |
+| Logging | — | Serilog + Seq | Structured, CorrelationId zincirli |
+| Metrics | New Relic | Prometheus + Grafana | Otomatik provisioned dashboard |
+| Infra | AWS + Kubernetes | Docker Compose + k3s | Local geliştirme + production deploy |
 
 ---
 
-## 🚀 Kurulum
+## Mimari
 
-### Ön Koşullar
-- [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 20+](https://nodejs.org/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                         │
+│   React Web (Leaflet)    Flutter Mobil    Admin Paneli      │
+└──────────────────────┬───────────────────────┬──────────────┘
+                       │ REST + SignalR         │
+                       ▼                        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    ASP.NET Core 9 Web API                   │
+│  OrdersController  CouriersController  AdminController      │
+│  AuthController    RestaurantsController  ReviewsController │
+│       │                       │                             │
+│  MatchingService         LocationService                    │
+│  (Haversine + Lock)      (Redis + SignalR)                  │
+│       │                       │                             │
+│          SignalR TrackingHub (order:{id} / courier:{id})    │
+└──────────────────────┬───────────────────────┬──────────────┘
+                       │                        │
+               PostgreSQL + JSONB             Redis
+               EF Core Migrations         (Konum, Lock,
+               Outbox, FeatureFlags        Rate limit,
+               Soft Delete                 Backplane)
+                       │
+                    Hangfire
+               (Outbox Processor,
+                Retry jobs)
+```
 
-### Tek Komutla Başlat (Önerilen)
+---
+
+## Üretim Kalitesi Patterns
+
+### 1 · Distributed Lock + Optimistic Concurrency
+
+**Problem:** Aynı siparişe iki paralel eşleştirme isteği aynı kuryeye çift atama yapabilir.
+
+**Çözüm:** İki katmanlı koruma. İlk katman — `MatchingService.FindAndAssignCourierAsync` içinde Redis `SET NX` ile sipariş bazlı kilit alınır; ikinci istek kilidi alamayınca geri döner. İkinci katman — lock altında kurye `DbContext`'ten taze çekilerek `Status == Available` çift kontrol edilir. Bu aşamada başka bir thread kuryeyi `Busy` yapmışsa transaction rollback yapılır, retry zamanlanır.
+
+```csharp
+var executed = await _lockService.ExecuteWithLockAsync(
+    $"matching:order:{orderId}",
+    LockExpiry,
+    async () => result = await DoFindAndAssignAsync(orderId));
+```
+
+### 2 · Outbox Pattern — Guaranteed Event Delivery
+
+**Problem:** `order.Status = Delivered` DB'ye yazıldı, tam o sırada restart oldu. SignalR bildirimi kayboldu, müşteri hiç haberdar olmadı.
+
+**Çözüm:** Sipariş durum geçişlerinde aynı transaction içine `OutboxEvent` kaydı da yazılır. `OutboxProcessor` (Hangfire job, her 5 sn) işlenmemiş event'leri bulur, SignalR'a iletir, `ProcessedAt` damgası basar. Restart sonrası bile event'ler `ProcessedAt IS NULL` partial index üzerinden bulunup işlenir. **En az bir kez teslim garantisi.**
+
+```csharp
+// AppDbContext'te partial index
+e.HasIndex(o => o.ProcessedAt)
+ .HasFilter("\"ProcessedAt\" IS NULL");
+```
+
+### 3 · Polly Resilience Pipeline — Graceful Degradation
+
+**Problem:** Redis down → tüm API 500 döner, sistem çöker.
+
+**Çözüm:** `ResilientDistributedCache` — `IDistributedCache` decorator'ı. Polly'nin üç katmanlı pipeline'ı (dıştan içe): `Timeout(2s) → CircuitBreaker(30s, hata oranı > %50) → Retry(3x exponential: 100ms→200ms→400ms)`. Tüm stratejiler başarısız olursa `null` döner — cache miss gibi davranır, çağıran DB'den okur. `BrokenCircuitException` yakalanınca Redis'e hiç gidilmez, overhead sıfır.
+
+### 4 · Idempotency Middleware
+
+**Problem:** Mobil ağ kopar, kullanıcı "Sipariş Ver" butonuna iki kez basar → iki sipariş oluşur.
+
+**Çözüm:** `POST /api/orders` için `Idempotency-Key` header'ı. İlk istek işlenince response Redis'e 24 saat TTL ile yazılır. Aynı key ile gelen ikinci istek, DB'ye hiç dokunmadan cache'deki response'u `X-Idempotent-Replayed: true` header'ı ile döner. Stripe ve PayPal'ın kullandığı pattern.
+
+### 5 · Feature Flags — Kademeli Rollout
+
+**Problem:** Yeni eşleştirme algoritması direkt %100'e açılırsa sorun çıkınca tüm kullanıcı etkilenir.
+
+**Çözüm:** `FeatureFlagService` — DB'den flag yükler, Redis'te cache'ler. Deterministik SHA256 hash ile bucket sistemi: `SHA256(userId + flagName) % 100 < rolloutPercentage → açık`. Aynı kullanıcı her zaman aynı bucket'a düşer, tutarlı deneyim. Admin paneli üzerinden canlıda `rolloutPercentage` güncellenir.
+
+### 6 · Rate Limiting
+
+Dört ayrı politika, controller'dan bağımsız middleware seviyesinde:
+
+| Politika | Limit | Kapsam |
+|----------|-------|--------|
+| `auth` | 10 istek/dakika | IP bazlı — brute-force koruması |
+| `orders` | 5 istek/dakika | Kullanıcı bazlı |
+| `location` | 20 istek/dakika | Kullanıcı bazlı |
+| `api` | 100 istek/dakika | IP bazlı — genel |
+
+Mikroservise geçişte attribute'ları kaldırıp YARP/Kong'a taşımak yeterli.
+
+### 7 · Correlation ID Zinciri
+
+`CorrelationIdMiddleware` her isteğe `X-Correlation-ID` atar, tüm Serilog log satırlarında taşınır. Hata response'larında da görünür:
+
+```json
+{ "status": 404, "message": "Sipariş bulunamadı", "correlationId": "a1b2c3d4" }
+```
+
+Seq'te `CorrelationId = 'a1b2c3d4'` filtresiyle o isteğe ait tüm log satırları anlık listelenir.
+
+---
+
+## Veritabanı Şeması
+
+EF Core 9 code-first migrations, 15 migration dosyasıyla evrildi. JSONB kolon, soft delete query filter, check constraint, partial index, composite unique index gibi PostgreSQL'e özgü özellikler kullanıldı.
+
+```
+AppUser ──(1:1)──► Courier
+AppUser ──(1:1)──► Restaurant
+AppUser ──(1:N)──► Order          (customerId)
+Restaurant ──(1:N)──► Order
+Restaurant ──(1:N)──► MenuItem
+Restaurant ──(1:N)──► Favorite
+Restaurant ──(1:N)──► Review
+Courier ──(1:N)──► Order
+Courier ──(1:N)──► CourierLocationHistory
+Order ──(1:N)──► CourierLocationHistory
+Order ──(1:N)──► OutboxEvent      (TargetGroup)
+FeatureFlag                       (name unique index)
+Category ──(1:N)──► MenuItem
+```
+
+Öne çıkan konfigürasyonlar:
+- `Order.ItemsJson` → JSONB kolon, hem esneklik hem indekslenebilirlik
+- `AppUser` → soft delete global query filter (`HasQueryFilter(u => !u.IsDeleted)`)
+- `Review` → DB seviyesinde `CHECK (Rating >= 1 AND Rating <= 5)` constraint
+- `Favorite` → `(UserId, RestaurantId)` composite unique index — bir kullanıcı aynı restoranı bir kez favorileyebilir
+- `FeatureFlag.Name` → unique index, `Description` max 500 karakter
+
+---
+
+## Backend — Controller & Servis Yapısı
+
+```
+Controllers/
+├── AuthController.cs          — JWT register/login/me, Google OAuth, şifre sıfırlama
+├── OrdersController.cs        — Sipariş yaşam döngüsü, durum makinesi, idempotency
+├── CouriersController.cs      — Konum güncelleme, aktif sipariş, durum geçişleri
+├── AdminController.cs         — Tüm siparişler, kurye yönetimi, feature flag CRUD
+├── RestaurantsController.cs   — Restoran CRUD, menü yönetimi, logo upload
+├── MenuItemsController.cs     — Menü kalemleri ve kategori eşleştirme
+├── CategoriesController.cs    — Kategori CRUD
+├── FavoritesController.cs     — Favoriye ekle/çıkar, liste, durum kontrolü
+├── ReviewsController.cs       — Yorum ve puan sistemi, sipariş doğrulama
+└── RestaurantApplicationsController.cs — Restoran başvuru akışı
+
+Services/
+├── MatchingService.cs         — Haversine + distributed lock + feature flag
+├── LocationService.cs         — Redis cache + rate limit + SignalR publish
+├── OrderService.cs            — Durum makinesi + outbox transaction
+├── OutboxProcessor.cs         — Hangfire job, SignalR guaranteed delivery
+├── FeatureFlagService.cs      — %X rollout, Redis cache, SHA256 bucket
+├── RedisDistributedLockService.cs — SET NX tabanlı dağıtık kilit
+├── TokenService.cs            — JWT üretim
+└── SmtpEmailService.cs        — Şifre sıfırlama maili (MailKit)
+
+Middleware/
+├── CorrelationIdMiddleware.cs — X-Correlation-ID zinciri
+├── IdempotencyMiddleware.cs   — Duplicate request koruması
+└── ExceptionMiddleware.cs     — Global hata yakalama, tutarlı hata formatı
+
+Extensions/
+├── JwtExtensions.cs           — JWT authentication pipeline
+├── ResilienceExtensions.cs    — Polly pipeline + IDistributedCache decorator
+├── RateLimitingExtensions.cs  — 4 politika, gateway katmanı
+├── OpenTelemetryExtensions.cs — Distributed tracing, custom ActivitySource
+└── SecretsExtensions.cs       — Startup secret doğrulama, env variable zinciri
+```
+
+---
+
+## React Frontend
+
+Vite + TypeScript + Tailwind CSS ile geliştirildi. Dark/Light theme, Google OAuth, animasyonlu Leaflet harita, gerçek zamanlı SignalR hook ve Nominatim tabanlı adres seçici içeriyor.
+
+```
+src/
+├── pages/
+│   ├── HomePage.tsx        — Restoran listeleme, Haversine mesafe filtresi, auth modal
+│   ├── RestaurantDetailPage.tsx — Menü, kategori, sepet, yorumlar, favoriler
+│   ├── CheckoutPage.tsx    — Adres seçimi, sipariş onaylama, idempotency key üretimi
+│   ├── TrackingPage.tsx    — Canlı harita, SignalR konum, animasyonlu marker
+│   ├── CourierPage.tsx     — Leaflet harita, GPS/Simülatör, sipariş durum güncelleme
+│   ├── AdminPage.tsx       — Sipariş yönetimi, kurye tablosu, feature flag paneli
+│   ├── RestaurantPage.tsx  — Aktif siparişler, menü yönetimi
+│   ├── OrdersPage.tsx      — Sipariş geçmişi, durum takibi
+│   └── ...static pages     — KVKK, Gizlilik, SSS, İletişim, Çerez Politikası
+├── components/
+│   ├── Navbar.tsx          — Sticky header, kullanıcı menüsü, adres seçici
+│   ├── AddressPickerModal  — Nominatim geocoding, harita ile konum seçimi
+│   └── ThemeToggle.tsx     — Dark/Light mod
+├── hooks/
+│   └── useSignalR.ts       — HubConnectionBuilder, otomatik reconnect, event listener
+├── services/
+│   ├── api.ts              — Axios instance, JWT interceptor
+│   ├── authService.ts      — Login/register/Google OAuth/forgotPassword
+│   ├── favoriteService.ts  — Favori CRUD, durum kontrolü
+│   └── reviewService.ts    — Yorum CRUD, yorum yapma hakkı kontrolü
+└── context/
+    └── AddressContext.tsx  — Global adres state
+```
+
+Kurye sayfasında GPS takibi ve simülatör aynı interface üzerinden yönetiliyor — gerçek `navigator.geolocation.watchPosition` veya `setInterval` ile sahte konum üretimi:
+
+```typescript
+const startSim = () => {
+  simRef.current = setInterval(() => {
+    simPosRef.current = {
+      lat: simPosRef.current.lat + (Math.random() - 0.5) * 0.001,
+      lng: simPosRef.current.lng + (Math.random() - 0.5) * 0.001,
+    }
+    sendLocation(simPosRef.current.lat, simPosRef.current.lng)
+  }, 3000)
+}
+```
+
+Yorum sistemi, Yemeksepeti mantığıyla çalışıyor: `GET /api/reviews/restaurant/{id}/can-review` endpoint'i kullanıcının o restorana yorum yapıp yapamayacağını döner — teslim edilmiş sipariş + daha önce yorum yazmamış olma koşulu aranıyor.
+
+---
+
+## Flutter Mobil
+
+Aynı REST API ve SignalR endpoint'lerini tüketiyor. `flutter_map` + OpenStreetMap ile harita, `signalr_netcore` ile gerçek zamanlı konum takibi, `flutter_secure_storage` ile JWT saklama. `flutter analyze` → 0 uyarı, 0 hata.
+
+---
+
+## Gözlemlenebilirlik Stack'i
+
+Üç ayak: **Metrics + Distributed Tracing + Structured Logging.**
 
 ```bash
-# Tüm servisler: PostgreSQL, Redis, API, Frontend
+# Tüm stack bir arada
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.monitoring.yml \
+  -f docker-compose.logging.yml up -d
+```
+
+| Araç | Adres | Ne sağlıyor |
+|------|-------|-------------|
+| Grafana | `:3001` | Throughput, p50/p95/p99 latency, 5xx oranı, GC, CPU, heap memory |
+| Prometheus | `:9090` | API `/metrics` scrape, PromQL sorguları |
+| OpenTelemetry → Jaeger | — | Her isteğe trace-id, EF Core sorguları dahil, custom `MatchingService` span |
+| Seq | `:5341` | `CorrelationId = 'x'` ile anlık log filtreleme |
+| Hangfire | `:5131/hangfire` | Outbox işlemleri, retry geçmişi |
+
+Grafana dashboard **otomatik provisioning** ile gelir — elle import gerekmez.
+
+---
+
+## CI/CD Pipeline
+
+```
+Push → main / develop
+    ├── Backend: dotnet restore → dotnet build --Release → dotnet test
+    ├── Frontend: npm ci → tsc --noEmit → npm run build → artifact upload
+    ├── k6 Login Smoke Test: Docker Compose (PostgreSQL + Redis + API) → gerçek ortamda test
+    └── Docker: API image + Frontend image → GHCR push (SHA tag + latest)
+                    │
+                    └── Deploy to Production (sadece main)
+                            SSH → git pull → kubectl rollout restart
+                            → rollout status (120s timeout)
+```
+
+**VITE_GOOGLE_CLIENT_ID** CI'da build-arg olarak geçiliyor — frontend image içine derleme aşamasında gömülüyor. Sırlar Kubernetes Secret'lardan pod'a env variable olarak enjekte ediliyor.
+
+---
+
+## Kubernetes — AWS EC2 + k3s
+
+```bash
+kubectl apply -k infra/k8s/
+```
+
+- Rolling update — `maxUnavailable: 0, maxSurge: 1`, sıfır downtime
+- HPA — 3 → 20 pod arası otomatik ölçekleme (CPU %70 eşiği)
+- `PodDisruptionBudget`, readiness/liveness probe
+- `ConfigMap + Secret` ayrımı — bağlantı stringleri Kubernetes Secret olarak enjekte edilir
+- **EF Core migration bundle** Dockerfile build aşamasında derleniyor, API pod'u başlamadan önce **init container** olarak migration'ları uyguluyor — sıfır manuel müdahale
+- Aynı YAML manifestler local k3s ve production'da çalışır — sadece kubeconfig değişir
+
+---
+
+## Yük Testleri — k6
+
+Üç profil: `smoke` (hızlı sağlık kontrolü), `load` (sabit yük), `million` (1.000.000 toplam login iterasyonu).
+
+```bash
+k6 run -e PROFILE=load -e RATE=250 -e DURATION=10m tests/load/login.js
+```
+
+**SLO eşikleri:** p95 < 500ms · p99 < 1sn · hata oranı < %1
+
+---
+
+## Chaos Testing — Graceful Degradation Kanıtı
+
+| Senaryo | Beklenen | Doğrulandı |
+|---------|----------|------------|
+| Redis down | Cache miss → DB fallback, API çalışmaya devam | ✅ |
+| PostgreSQL down | `/health/ready` → 503, açıklayıcı hata mesajı | ✅ |
+| API restart + Outbox | Event'ler DB'de bekler, restart sonrası işlenir | ✅ |
+| Paralel eşleştirme (race) | Çift atama yok, distributed lock devrede | ✅ |
+| Rate limit aşımı | 429 + `Retry-After` header | ✅ |
+| Idempotency — çift istek | İkinci istek `X-Idempotent-Replayed: true` ile döner | ✅ |
+
+---
+
+## Kurulum
+
+```bash
+# Tüm servisler (PostgreSQL, Redis, API, Frontend)
 docker compose up -d
 
-# API hazır olunca → http://localhost:5131/swagger
-# Frontend          → http://localhost:3000
+# API Swagger  → http://localhost:5131/swagger
+# Frontend     → http://localhost:3000
+# Hangfire     → http://localhost:5131/hangfire
 ```
 
-### Sadece Altyapıyı Docker, API'yi Local Çalıştır
-
-```bash
-# PostgreSQL + Redis
-docker compose up -d postgres redis
-
-# Backend (otomatik migration + seed data)
-cd backend/GetirReplica.API
-dotnet run
-# → http://localhost:5131
-# → http://localhost:5131/swagger
-
-# Frontend
-cd backend/GetirReplica.API/gotur-web
-npm install && npm run dev
-# → http://localhost:5173
-```
-
-### Gözlemlenebilirlik Stack'ini Ekle
-
-```bash
-# Prometheus + Grafana
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
-
-# Seq (structured log UI)
-docker compose -f docker-compose.yml -f docker-compose.logging.yml up -d
-```
-
-| Araç | Adres | Giriş |
-|------|-------|-------|
-| API Swagger | http://localhost:5131/swagger | — |
-| Grafana | http://localhost:3001 | admin / gotur-admin |
-| Prometheus | http://localhost:9090 | — |
-| Seq (Logs) | http://localhost:5341 | — |
-| Hangfire | http://localhost:5131/hangfire | — |
-
----
-
-## 👥 Test Hesapları
+### Test Hesapları
 
 | Rol | Email | Şifre |
 |-----|-------|-------|
 | Müşteri | ahmet.yilmaz@gotur.com | Test123! |
 | Kurye (İstanbul) | kurye.istanbul1@gotur.com | Test123! |
 | Kurye (Ankara) | kurye.ankara1@gotur.com | Test123! |
-| Restoran | karadeniz.mangal@gotur.com | Rest123! |
+| Restoran | karadeniz.mangal@gotur.com | Test123! |
 | Admin | admin@gotur.com | Admin123! |
 
 ---
 
-## 🎮 Demo Akışı
-
-### Temel Akış
-1. **Müşteri** hesabıyla giriş yap → sipariş ver
-2. **Kurye** hesabıyla ayrı sekmede giriş yap → Simülatör başlat (konum göndermeye başlar)
-3. **Restoran** hesabıyla → Siparişi "Hazır" işaretle
-4. Otomatik eşleştirme gerçekleşir (Kurye'ye `CourierAssigned` bildirimi gelir)
-5. **Müşteri** sekmesinde haritada kurye konumunu canlı takip et
-6. Kurye panelinden "Aldım" → "Teslim Ettim" geçişi yap
-7. Müşteri ekranında 🎉 teslim bildirimi
-
-### Feature Flag Demosu
-```bash
-# Admin panelinde yeni eşleştirme algoritmasını %10'a aç
-curl -X PUT http://localhost:5131/api/admin/feature-flags/new_matching_algorithm \
-  -H "Authorization: Bearer <admin_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"isEnabled": true, "rolloutPercentage": 10}'
-
-# Sonra GET ile kontrol et
-curl http://localhost:5131/api/admin/feature-flags \
-  -H "Authorization: Bearer <admin_token>"
-```
-
-### Chaos / Graceful Degradation Demosu
-```bash
-# Redis'i kapat — API hâlâ çalışmalı, cache miss → DB'den okur
-docker stop gotur-redis
-curl http://localhost:5131/api/orders/active -H "Authorization: Bearer <token>"
-# Beklenen: 200 (circuit breaker devrede, graceful degradation)
-
-# Logda görmek için
-docker logs gotur-api 2>&1 | grep -i "circuit\|cache miss"
-
-# Redis'i geri aç
-docker start gotur-redis
-```
-
-### Idempotency Demosu
-```bash
-# Aynı Idempotency-Key ile iki kez istek at
-KEY=$(uuidgen)
-
-curl -X POST http://localhost:5131/api/orders \
-  -H "Authorization: Bearer <customer_token>" \
-  -H "Idempotency-Key: $KEY" \
-  -H "Content-Type: application/json" \
-  -d '{...}'  # İlk istek — sipariş oluşur
-
-curl -X POST http://localhost:5131/api/orders \
-  -H "Authorization: Bearer <customer_token>" \
-  -H "Idempotency-Key: $KEY" \
-  -H "Content-Type: application/json" \
-  -d '{...}'  # İkinci istek — X-Idempotent-Replayed: true header ile aynı response döner
-              # DB'ye yazılmaz, duplicate sipariş oluşmaz
-```
-
-### Correlation ID Demosu
-```bash
-# Hata üret — response'da correlationId göreceksin
-curl -X GET http://localhost:5131/api/orders/00000000-0000-0000-0000-000000000000 \
-  -H "Authorization: Bearer <token>"
-# Response: {"status":404,"message":"...","correlationId":"a1b2c3d4..."}
-
-# Seq'te bu ID ile tüm log satırlarını bul: http://localhost:5341
-# filter: CorrelationId = 'a1b2c3d4...'
-```
-
-Detaylı chaos senaryoları → [docs/CHAOS_TESTING.md](./docs/CHAOS_TESTING.md)
-
----
-
-## 📁 Proje Yapısı
+## Proje Yapısı
 
 ```
 getir-replica/
-├── backend/
-│   └── GetirReplica.API/
-│       ├── Controllers/           # Auth, Orders, Couriers, Admin, Restaurants
-│       ├── Services/
-│       │   ├── MatchingService    # Distributed lock + Haversine + feature flag
-│       │   ├── OrderService       # Outbox pattern + durum makinesi
-│       │   ├── LocationService    # Redis cache + rate limit + SignalR
-│       │   ├── FeatureFlagService # % rollout + Redis cache
-│       │   ├── OutboxProcessor    # Hangfire — SignalR guaranteed delivery
-│       │   └── RedisDistributedLockService  # SET NX based locking
-│       ├── Middleware/
-│       │   ├── CorrelationIdMiddleware  # X-Correlation-ID zinciri
-│       │   ├── IdempotencyMiddleware    # Duplicate request koruması
-│       │   └── ExceptionMiddleware     # Hata yönetimi + correlationId
-│       ├── Extensions/
-│       │   ├── OpenTelemetryExtensions  # Dağıtık izleme
-│       │   ├── ResilienceExtensions     # Polly pipeline + cache decorator
-│       │   ├── RateLimitingExtensions   # 4 politika, gateway katmanı
-│       │   └── SecretsExtensions        # Startup secret doğrulama
-│       ├── Hubs/                  # SignalR TrackingHub
-│       ├── Data/                  # AppDbContext, DataSeeder, Migrations
-│       ├── Models/
-│       │   ├── Entities/          # Order, Courier, OutboxEvent, FeatureFlag, ...
-│       │   ├── DTOs/
-│       │   └── Enums/
-│       └── gotur-web/             # React + Vite + Tailwind
-├── docs/
-│   ├── ENGINEERING.md             # Sistem mühendisliği + ölçek
-│   └── CHAOS_TESTING.md           # Graceful degradation test senaryoları
+├── backend/GetirReplica.API/
+│   ├── Controllers/        (10 controller)
+│   ├── Services/           (15 servis, interface + implementasyon)
+│   ├── Middleware/         (Correlation, Idempotency, Exception)
+│   ├── Extensions/         (JWT, Polly, Rate Limit, OTel, Secrets)
+│   ├── Hubs/               (SignalR TrackingHub)
+│   ├── Data/               (AppDbContext, DataSeeder)
+│   ├── Migrations/         (15 migration — evrim izlenebilir)
+│   ├── Models/             (Entities, DTOs, Enums)
+│   └── gotur-web/          (React + Vite + Tailwind)
+├── mobile/                 (Flutter)
 ├── infra/
-│   ├── k8s/                       # Kubernetes manifestleri
-│   └── monitoring/                # Prometheus + Grafana provisioning
-├── tests/load/                    # k6 yük testleri
+│   ├── k8s/                (Kubernetes manifestleri)
+│   └── monitoring/         (Prometheus + Grafana provisioning)
+├── tests/load/             (k6 — smoke/load/million)
+├── docs/
+│   ├── ARCHITECTURE.md     (Trade-off analizleri)
+│   └── CHAOS_TESTING.md    (Graceful degradation senaryoları)
 ├── docker-compose.yml
-├── docker-compose.monitoring.yml  # Prometheus + Grafana
-├── docker-compose.logging.yml     # Seq (structured logs)
-├── ARCHITECTURE.md
-└── README.md
+├── docker-compose.monitoring.yml
+└── docker-compose.logging.yml
 ```
 
 ---
 
-## 🗃️ Veritabanı Şeması
+## Teşekkür
 
-```mermaid
-erDiagram
-    AppUser {
-        uuid Id PK
-        string Email
-        string FullName
-        string Role
-        bool IsDeleted
-        datetime DeletedAt
-    }
-    Courier {
-        uuid Id PK
-        uuid UserId FK
-        string Status
-        double CurrentLocationLat
-        double CurrentLocationLng
-        datetime LastLocationAt
-    }
-    Restaurant {
-        uuid Id PK
-        uuid UserId FK
-        string Name
-        double LocationLat
-        double LocationLng
-        bool IsOpen
-    }
-    Order {
-        uuid Id PK
-        uuid CustomerId FK
-        uuid RestaurantId FK
-        uuid CourierId FK
-        string Status
-        jsonb ItemsJson
-        int RetryCount
-        datetime AssignedAt
-        datetime DeliveredAt
-    }
-    OutboxEvent {
-        uuid Id PK
-        string EventType
-        string TargetGroup
-        jsonb Payload
-        datetime ProcessedAt
-        int RetryCount
-    }
-    FeatureFlag {
-        uuid Id PK
-        string Name
-        bool IsEnabled
-        int RolloutPercentage
-        string TargetUserIds
-    }
-    CourierLocationHistory {
-        long Id PK
-        uuid CourierId FK
-        uuid OrderId FK
-        double LocationLat
-        double LocationLng
-        datetime RecordedAt
-    }
-
-    AppUser ||--o| Courier : "1:1"
-    AppUser ||--o| Restaurant : "1:1"
-    AppUser ||--o{ Order : "1:N (müşteri)"
-    Restaurant ||--o{ Order : "1:N"
-    Courier ||--o{ Order : "1:N"
-    Courier ||--o{ CourierLocationHistory : "1:N"
-    Order ||--o{ CourierLocationHistory : "1:N"
-```
-
-`OrderStatus`: Pending → ReadyForPickup → Assigned → Picked → Delivered / Failed / Cancelled  
-`CourierStatus`: Available | Busy | Offline
-
----
-
-## 📊 Gözlemlenebilirlik
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
-docker compose -f docker-compose.yml -f docker-compose.logging.yml up -d
-```
-
-**Metrikler (Prometheus + Grafana)**
-- HTTP throughput, p50/p95/p99 latency, hata oranı
-- .NET GC, CPU, memory
-- Grafana dashboard otomatik provisioning ile gelir
-
-**Dağıtık İzleme (OpenTelemetry)**
-- Her isteğe trace-id — EF Core sorguları dahil
-- OTLP → Jaeger veya Grafana Tempo
-- `MatchingService.FindAndAssign` özel span'i
-
-**Structured Logging (Serilog + Seq)**
-- Her log satırında `CorrelationId`, `UserId`, request path
-- Seq'te filtreli arama: `CorrelationId = 'abc123'`
-
----
-
-## 🔑 Teknik Özellikler Özeti
-
-- **Race Condition Koruması**: Redis distributed lock + PostgreSQL optimistic concurrency
-- **Guaranteed Delivery**: Outbox pattern — DB yazma + SignalR bildirimi atomik
-- **Graceful Degradation**: Polly circuit breaker — Redis down ≠ uygulama down
-- **Duplicate Request Koruması**: Idempotency middleware — mobil network kesintilerinde güvenli
-- **Kademeli Özellik Yayınımı**: Feature flags — %X rollout, belirli kullanıcılara açma
-- **Gözlemlenebilirlik**: Metrics + Distributed Tracing + Structured Logging üçlüsü
-- **Durum Makinesi**: `AllowedTransitions` dictionary — geçersiz geçişler 422 döner
-- **Eşleştirme**: Haversine, stale konum filtresi, 3 retry, dağıtık kilit
-- **Rate Limiting**: 4 seviyeli politika — gateway pattern, mikroservise taşıma hazır
-- **Secrets**: Env variable zinciri, startup doğrulama, K8s Secret pattern
-
----
-
-## 🐞 Chaos Testing
-
-5 senaryo ile graceful degradation kanıtlanmıştır:
-
-| Senaryo | Beklenen Davranış |
-|---------|-------------------|
-| Redis down | Cache miss → DB fallback, API çalışmaya devam |
-| PostgreSQL down | 503 health, açıklayıcı hata mesajı |
-| API restart + Outbox | Event'ler DB'de bekler, restart sonrası işlenir |
-| Paralel eşleştirme (race) | Çift atama yok, distributed lock devrede |
-| Rate limit aşımı | 429 + Retry-After header |
-
-Detaylar → [docs/CHAOS_TESTING.md](./docs/CHAOS_TESTING.md)
-
----
-
-## 🧪 Yük Testleri
-
-```bash
-# Smoke test
-k6 run tests/load/smoke.js
-
-# Sabit yük (50 VU, 5 dakika)
-k6 run tests/load/load.js
-
-# 1 milyon iterasyon
-k6 run tests/load/million.js
-```
-
-Eşikler: p95 < 500ms, p99 < 1000ms, hata oranı < %1
-
-Detaylar → [tests/load/README.md](./tests/load/README.md)
-
----
-
-## ☸️ Kubernetes
-
-```bash
-kubectl apply -k infra/k8s/
-```
-
-- Rolling update (zero-downtime)
-- HPA: 3–20 API pod (CPU %70 eşiği)
-- Resource limits, readiness/liveness probe
-- PodDisruptionBudget
-
-Detaylar → [infra/k8s/README.md](./infra/k8s/README.md)
-
----
-
-## 👨‍💻 Ekip
-
-| İsim | Rol |
-|------|-----|
-| Çağatay | Backend · Web Frontend · Mimari |
-| [Arkadaşın Adı] | Mobil (Flutter) |
+Bu değerli fırsatı bize sunan Sayın Birol Başaran'a, süreç boyunca desteklerini esirgemeyen Sayın Bektaş Baysal'a ve proje geliştirme sürecindeki değerli mentörlüğü için Sayın Veli Bacık'a teşekkür ederim.
 
 ---
 
