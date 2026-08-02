@@ -57,12 +57,17 @@ public static class RateLimitingExtensions
             // ── Auth: Brute-force koruması ────────────────────────────────────
             // Login/register endpoint'leri: IP başına 10 istek/dakika, sliding window
             // Sliding window: token bucket'tan daha adil — sabit window sıfırlanma açığını kapatır
+            // CI/test ortamlarında RATE_LIMIT_AUTH_PERMITS env değişkeni ile override edilebilir
+            var authPermitLimit = int.TryParse(
+                Environment.GetEnvironmentVariable("RATE_LIMIT_AUTH_PERMITS"), out var parsed)
+                ? parsed : 10;
+
             options.AddPolicy(AuthPolicy, httpContext =>
                 RateLimitPartition.GetSlidingWindowLimiter(
                     partitionKey: GetClientIp(httpContext),
                     factory: _ => new SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 10,
+                        PermitLimit = authPermitLimit,
                         Window = TimeSpan.FromMinutes(1),
                         SegmentsPerWindow = 4, // 15 saniyelik segmentler
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,

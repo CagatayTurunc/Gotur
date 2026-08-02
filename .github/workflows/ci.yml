@@ -152,11 +152,14 @@ jobs:
       # --build: her CI'da fresh image.
       # OTEL_SDK_DISABLED=true: CI'da Jaeger yok, OTLP bağlantı retry'ları
       # startup'ı geciktiriyor. Sadece bu job için OpenTelemetry'yi kapat.
+      # RATE_LIMIT_AUTH_PERMITS=200: k6 smoke testi 20 istek gönderiyor; prod limiti
+      # olan 10/dk CI ortamında test isteklerini bloklar. CI'da yüksek limit kullan.
       - name: Start API stack
         run: |
           docker compose up -d --build postgres redis api
         env:
           OTEL_SDK_DISABLED: "true"
+          RATE_LIMIT_AUTH_PERMITS: "200"
 
       # Doğrudan /health/ready endpoint'ini sorgula.
       # Container health status bazen gecikebilir; HTTP 200 daha güvenilir.
