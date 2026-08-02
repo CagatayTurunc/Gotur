@@ -65,10 +65,13 @@ services:
       redis:
         condition: service_healthy
     # /health/ready; PostgreSQL + Redis bağlantısını doğrular.
-    # start_period: seed data + migration süresi için yeterli süre ver.
-    # retries × interval = toplam bekleme: 20 × 15s = 300s (5 dakika)
+    # CI pipeline bu probe'u bekler; seed data yüklenmeden k6 başlamaz.
+    # aspnet:9.0 image'ında wget yoktu — Dockerfile'a eklendi.
+    # --spider HEAD isteği atar, bu endpoint HEAD'e 405 döndüğü için -O /dev/null ile gerçek GET yapılıyor
+    # (--spider ile container hiçbir zaman "healthy" olamıyordu, sadece daha uzun süre bekleyip pes ediyordu).
+    # start_period/retries: seed data + migration süresi için yeterli süre ver.
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/health/ready || exit 1"]
+      test: ["CMD-SHELL", "wget --quiet -O /dev/null http://localhost:8080/health/ready || exit 1"]
       interval: 15s
       timeout: 10s
       start_period: 120s

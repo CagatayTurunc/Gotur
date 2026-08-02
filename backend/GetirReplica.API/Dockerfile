@@ -15,6 +15,9 @@ RUN dotnet ef migrations bundle \
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
+# docker-compose healthcheck wget kullanıyor — aspnet:9.0 imajında kurulu değil,
+# eksikse container "unhealthy" kalır ve CI'daki health-wait adımı hep timeout'a düşer.
+RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish .
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
