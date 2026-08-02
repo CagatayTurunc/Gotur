@@ -177,11 +177,19 @@ jobs:
           docker compose logs api postgres redis
           exit 1
 
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq && sudo apt-get install -y k6
+
       - name: Run k6 smoke profile
         run: |
           sleep 15
           mkdir -p tests/load/results
-          chmod 777 tests/load/results
           # Login endpoint'ini manuel test et — k6 öncesi doğrulama
           echo "=== Login endpoint manuel test ==="
           curl -s -w "\nHTTP_CODE:%{http_code}" \
@@ -190,12 +198,12 @@ jobs:
             -d '{"email":"ahmet.yilmaz@gotur.com","password":"Test123!"}' | tail -5
           echo ""
           echo "=== k6 smoke testi başlıyor ==="
-          docker run --rm --network host \
-            -e BASE_URL=http://127.0.0.1:5131 \
-            -e PROFILE=smoke \
-            -v "${{ github.workspace }}/tests/load:/scripts" \
-            -w /scripts \
-            grafana/k6:0.57.0 run login.js
+          # k6 direkt runner'da çalışıyor (Docker container değil)
+          # --network host sorununu ortadan kaldırır
+          cd tests/load
+          BASE_URL=http://127.0.0.1:5131 PROFILE=smoke \
+            SUMMARY_PATH=results/login-summary.json \
+            k6 run login.js
 
       - name: Upload k6 summary
         if: always()
