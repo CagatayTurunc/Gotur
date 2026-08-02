@@ -149,21 +149,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --build: her CI'da fresh image. api servisi kendi /health/ready'ini geçene
-      # kadar depends_on beklediği için burada ayrıca curl döngüsüne gerek yok.
+      # --build: her CI'da fresh image.
+      # OTEL_SDK_DISABLED=true: CI'da Jaeger yok, OTLP bağlantı retry'ları
+      # startup'ı geciktiriyor. Sadece bu job için OpenTelemetry'yi kapat.
+      # RATE_LIMIT_AUTH_PERMITS=200: k6 smoke testi 20 istek gönderiyor; prod limiti
+      # olan 10/dk CI ortamında test isteklerini bloklar. CI'da yüksek limit kullan.
       - name: Start API stack
-        run: docker compose up -d --build postgres redis api
+        run: |
+          docker compose up -d --build postgres redis api
+        env:
+          OTEL_SDK_DISABLED: "true"
+          RATE_LIMIT_AUTH_PERMITS: "200"
 
-      # docker compose'un health check'ini bekle.
-      # api servisi healthy olmadan devam etme.
+      # Doğrudan /health/ready endpoint'ini sorgula.
+      # Container health status bazen gecikebilir; HTTP 200 daha güvenilir.
       - name: Wait for API to be healthy
         shell: bash
         run: |
-          echo "API health check bekleniyor..."
-          for attempt in {1..60}; do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' gotur-api 2>/dev/null || echo "missing")
-            echo "  Deneme $attempt/60 — container durumu: $STATUS"
-            if [ "$STATUS" = "healthy" ]; then
+          echo "API /health/ready bekleniyor..."
+          for attempt in {1..90}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5131/health/ready 2>/dev/null || echo "000")
+            echo "  Deneme $attempt/90 — HTTP: $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
               echo "API hazır."
               exit 0
             fi
@@ -173,15 +180,33 @@ jobs:
           docker compose logs api postgres redis
           exit 1
 
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq && sudo apt-get install -y k6
+
       - name: Run k6 smoke profile
         run: |
+          sleep 15
           mkdir -p tests/load/results
-          docker run --rm --network host \
-            -e BASE_URL=http://127.0.0.1:5131 \
-            -e PROFILE=smoke \
-            -v "${{ github.workspace }}/tests/load:/scripts" \
-            -w /scripts \
-            grafana/k6:0.57.0 run login.js
+          # Login endpoint'ini manuel test et — k6 öncesi doğrulama
+          echo "=== Login endpoint manuel test ==="
+          curl -s -w "\nHTTP_CODE:%{http_code}" \
+            -X POST http://127.0.0.1:5131/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ahmet.yilmaz@gotur.com","password":"Test123!"}' | tail -5
+          echo ""
+          echo "=== k6 smoke testi başlıyor ==="
+          # k6 direkt runner'da çalışıyor (Docker container değil)
+          # --network host sorununu ortadan kaldırır
+          cd tests/load
+          BASE_URL=http://127.0.0.1:5131 PROFILE=smoke \
+            SUMMARY_PATH=results/login-summary.json \
+            k6 run login.js
 
       - name: Upload k6 summary
         if: always()

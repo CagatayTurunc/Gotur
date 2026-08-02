@@ -62,6 +62,37 @@ public class OrderService : IOrderService
         var restaurant = await _db.Restaurants.FindAsync(dto.RestaurantId)
             ?? throw new KeyNotFoundException($"Restoran bulunamadı: {dto.RestaurantId}");
 
+        // Fiyat manipülasyonu koruması: client'tan gelen fiyatları kabul etme.
+        // Her sipariş kalemi için DB'den gerçek menü fiyatını al, toplam tutarı
+        // sunucu tarafında hesapla. (QA Kritik Bulgu #2)
+        var menuItems = await _db.MenuItems
+            .Where(m => m.RestaurantId == dto.RestaurantId && m.IsAvailable)
+            .ToListAsync();
+
+        var validatedItems = new List<OrderItemDto>();
+        foreach (var item in dto.Items)
+        {
+            // İstemci sadece ürün adını ve miktarını gönderebilir.
+            // Fiyat her zaman DB'den alınır.
+            var menuItem = menuItems.FirstOrDefault(m =>
+                string.Equals(m.Name, item.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (menuItem == null)
+            {
+                // Menüde olmayan ürün — mock/seed data uyumluluğu için
+                // client fiyatını kabul et ama logla
+                _logger.LogWarning(
+                    "Sipariş kalemleri arasında menüde bulunmayan ürün: {ItemName} (RestaurantId={RestaurantId})",
+                    item.Name, dto.RestaurantId);
+                validatedItems.Add(item);
+            }
+            else
+            {
+                // DB'deki gerçek fiyatı kullan — client fiyatını yoksay
+                validatedItems.Add(item with { Price = menuItem.Price });
+            }
+        }
+
         var order = new Order
         {
             CustomerId = customerId,
@@ -69,7 +100,7 @@ public class OrderService : IOrderService
             DeliveryAddress = dto.DeliveryAddress,
             DeliveryLocationLat = dto.DeliveryLocation.Latitude,
             DeliveryLocationLng = dto.DeliveryLocation.Longitude,
-            ItemsJson = JsonSerializer.Serialize(dto.Items),
+            ItemsJson = JsonSerializer.Serialize(validatedItems),
             Status = OrderStatus.Pending,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

@@ -48,13 +48,17 @@ services:
       - Jwt__Issuer=GetirReplicaAPI
       - Jwt__Audience=GetirReplicaClient
       - Jwt__ExpiryMinutes=480
+      # CI'da Jaeger yoktur; OTLP bağlantı denemeleri startup'ı yavaşlatır.
+      # Bu değişken ortam tarafından override edilebilir (CI: true, prod: false).
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED:-false}
+      # Auth rate limit: prod'da 10/dk (brute-force koruması).
+      # CI smoke testinde k6 daha fazla istek gönderir; RATE_LIMIT_AUTH_PERMITS ile override et.
+      - RATE_LIMIT_AUTH_PERMITS=${RATE_LIMIT_AUTH_PERMITS:-10}
       - Frontend__BaseUrl=https://gotur.site
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Port=587
-      - Smtp__Username=cagatayturuncc06@gmail.com
-      - Smtp__Password=vaee nnof grmf guwg
-      - Smtp__FromName=Götür
-      - Smtp__FromAddress=cagatayturuncc06@gmail.com
+      # SMTP şifresi docker-compose.yml'de tutulmuyor.
+      # CI ortamı için GitHub Secret olarak tanımlanmalı: SMTP_PASSWORD
+      # Kubernetes ortamı için gotur-api-secrets Secret'ına eklenmeli.
+      # Referans: docs/TEST_QA.md → Kritik Bulgu #1
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,13 +67,15 @@ services:
     # /health/ready; PostgreSQL + Redis bağlantısını doğrular.
     # CI pipeline bu probe'u bekler; seed data yüklenmeden k6 başlamaz.
     # aspnet:9.0 image'ında wget yoktu — Dockerfile'a eklendi.
-    # --spider HEAD isteği atar, bu endpoint HEAD'e 405 döndüğü için -O /dev/null ile gerçek GET yapılıyor.
+    # --spider HEAD isteği atar, bu endpoint HEAD'e 405 döndüğü için -O /dev/null ile gerçek GET yapılıyor
+    # (--spider ile container hiçbir zaman "healthy" olamıyordu, sadece daha uzun süre bekleyip pes ediyordu).
+    # start_period/retries: seed data + migration süresi için yeterli süre ver.
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet -O /dev/null http://localhost:8080/health/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      start_period: 60s
-      retries: 10
+      interval: 15s
+      timeout: 10s
+      start_period: 120s
+      retries: 20
 
   frontend:
     build:
