@@ -62,9 +62,10 @@ services:
         condition: service_healthy
     # /health/ready; PostgreSQL + Redis bağlantısını doğrular.
     # CI pipeline bu probe'u bekler; seed data yüklenmeden k6 başlamaz.
-    # aspnet:9.0 image'ında curl yok; wget kullanılır (Debian base'de mevcut).
+    # aspnet:9.0 image'ında wget yoktu — Dockerfile'a eklendi.
+    # --spider HEAD isteği atar, bu endpoint HEAD'e 405 döndüğü için -O /dev/null ile gerçek GET yapılıyor.
     healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/health/ready || exit 1"]
+      test: ["CMD-SHELL", "wget --quiet -O /dev/null http://localhost:8080/health/ready || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 60s
