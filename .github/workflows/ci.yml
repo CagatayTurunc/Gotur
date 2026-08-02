@@ -15,38 +15,13 @@ on:
     branches: [main]
 
 jobs:
-  # ── 1. Backend Build ──────────────────────────────────────────────────────
-  # Neden: Derleme hatası varsa sonraki adımlara geçme.
-  # Docker build'den önce yapılır çünkü çok daha hızlıdır — erken geri bildirim.
-  backend:
-    name: Backend (.NET 9)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore GetirReplica.sln
-        working-directory: backend
-
-      - name: Build
-        run: dotnet build GetirReplica.sln --no-restore --configuration Release
-        working-directory: backend
-
-  # ── 2. Unit Tests ─────────────────────────────────────────────────────────
-  # Neden: 35 xUnit testi — durum makinesi, Haversine, fiyat validasyonu, Redis rate limit.
-  # Build'den ayrı job: pipeline'da ayrı yeşil/kırmızı kutucuk olarak görünür.
-  # --no-build: backend job zaten derledi, tekrar derleme gerekmez.
+  # ── 1. Unit Tests (.NET 9) ────────────────────────────────────────────────
+  # Build + test tek job'da. Runner'lar arası artifact paylaşımı olmadığından
+  # ayrı build job'ı gereksiz karmaşıklık ekler.
+  # 35 xUnit testi: durum makinesi, Haversine, fiyat validasyonu, Redis rate limit.
   unit-tests:
     name: Unit Tests (.NET 9)
     runs-on: ubuntu-latest
-    needs: [backend]
 
     steps:
       - name: Checkout
