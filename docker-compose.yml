@@ -55,12 +55,10 @@ services:
       # CI smoke testinde k6 daha fazla istek gönderir; RATE_LIMIT_AUTH_PERMITS ile override et.
       - RATE_LIMIT_AUTH_PERMITS=${RATE_LIMIT_AUTH_PERMITS:-10}
       - Frontend__BaseUrl=https://gotur.site
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Port=587
-      - Smtp__Username=cagatayturuncc06@gmail.com
-      - Smtp__Password=vaee nnof grmf guwg
-      - Smtp__FromName=Götür
-      - Smtp__FromAddress=cagatayturuncc06@gmail.com
+      # SMTP şifresi docker-compose.yml'de tutulmuyor.
+      # CI ortamı için GitHub Secret olarak tanımlanmalı: SMTP_PASSWORD
+      # Kubernetes ortamı için gotur-api-secrets Secret'ına eklenmeli.
+      # Referans: docs/TEST_QA.md → Kritik Bulgu #1
     depends_on:
       postgres:
         condition: service_healthy
