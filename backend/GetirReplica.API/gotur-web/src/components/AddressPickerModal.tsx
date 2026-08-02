@@ -117,9 +117,20 @@ export default function AddressPickerModal() {
     if (!val.trim()) { setSuggestions([]); return }
     setSearching(true)
     debounce.current = setTimeout(async () => {
-      setSuggestions(await searchAddress(val))
+      const results = await searchAddress(val)
+      setSuggestions(results)
       setSearching(false)
     }, 500)
+  }
+
+  // Manuel girilen metni koordinatsız olarak adres olarak kullan
+  const useManualText = () => {
+    if (!searchQuery.trim()) return
+    setPickedText(searchQuery.trim())
+    // Ankara merkezi koordinatları (koordinat bulunamazsa fallback)
+    setPickedLat(39.9334)
+    setPickedLng(32.8597)
+    setSuggestions([])
   }
 
   const pickSuggestion = (r: NominatimResult) => {
@@ -132,7 +143,7 @@ export default function AddressPickerModal() {
   }
 
   const handleSave = () => {
-    if (!pickedLat || !pickedLng || !pickedText) return
+    if (pickedLat === null || pickedLng === null || !pickedText) return
     const fullAddress = detail.trim() ? `${pickedText}, ${detail.trim()}` : pickedText
     addAddress({ label, fullAddress, lat: pickedLat, lng: pickedLng })
     closePicker()
@@ -292,6 +303,16 @@ export default function AddressPickerModal() {
                   type="text"
                   value={searchQuery}
                   onChange={e => handleSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && searchQuery.trim() && !pickedText) {
+                      e.preventDefault()
+                      if (suggestions.length > 0) {
+                        pickSuggestion(suggestions[0])
+                      } else {
+                        useManualText()
+                      }
+                    }
+                  }}
                   placeholder="Mahalle, cadde veya adres ara..."
                   autoFocus
                   style={{ ...INPUT, width: '100%', padding: '12px 44px 12px 42px', borderRadius: 12, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
@@ -313,6 +334,29 @@ export default function AddressPickerModal() {
                     </button>
                   ))}
                 </div>
+              )}
+
+              {/* Öneri yoksa ve kullanıcı bir şey yazdıysa: manuel gir seçeneği */}
+              {!searching && searchQuery.trim() && suggestions.length === 0 && !pickedText && (
+                <button
+                  onClick={useManualText}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px dashed var(--border)', backgroundColor: 'var(--bg-card)', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+                  <span className="material-symbols-outlined" style={{ ...S, fontSize: 20, flexShrink: 0 }}>edit_location</span>
+                  <div>
+                    <p style={{ ...P, fontWeight: 600, fontSize: 13, margin: 0 }}>"{searchQuery}" adresini kullan</p>
+                    <p style={{ ...S, fontSize: 11, margin: '2px 0 0' }}>Öneri bulunamadı — metni doğrudan adres olarak kaydet</p>
+                  </div>
+                </button>
+              )}
+
+              {/* Öneri varken de manuel gir seçeneği */}
+              {!searching && searchQuery.trim() && suggestions.length > 0 && !pickedText && (
+                <button
+                  onClick={useManualText}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, border: 'none', backgroundColor: 'transparent', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+                  <span className="material-symbols-outlined" style={{ ...S, fontSize: 16 }}>edit</span>
+                  <p style={{ ...S, fontSize: 12, margin: 0 }}>Yukarıdakiler doğru değil mi? Yazdığın metni kullan</p>
+                </button>
               )}
 
               {/* Seçilen konum */}
