@@ -5,6 +5,7 @@ import ThemeToggle from '../components/ThemeToggle'
 import { useSignalR } from '../hooks/useSignalR'
 import { orderService } from '../services/orderService'
 import { authService } from '../services/authService'
+import api from '../services/api'
 import type { Order } from '../types'
 
 // ── Durum tanımları ──────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ export default function TrackingPage() {
   const navigate     = useNavigate()
   const user         = authService.getUser()
   const [order, setOrder] = useState<Order | null>(null)
+  const [courierName, setCourierName] = useState<string | null>(null)
   const [initialLocation, setInitialLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   const { courierLocation, orderStatus, isConnected, locationTimeout } = useSignalR({
@@ -47,7 +49,15 @@ export default function TrackingPage() {
 
   useEffect(() => {
     if (!orderId) return
-    orderService.getOrder(orderId).then(setOrder).catch(console.error)
+    orderService.getOrder(orderId).then(o => {
+      setOrder(o)
+      // Kurye atandıysa adını çek
+      if (o.courierId) {
+        api.get<{ fullName: string }>(`/couriers/${o.courierId}/info`)
+          .then(r => setCourierName(r.data.fullName))
+          .catch(() => {})
+      }
+    }).catch(console.error)
     orderService.getTracking(orderId)
       .then(loc => { if (loc) setInitialLocation({ lat: loc.latitude, lng: loc.longitude }) })
       .catch(console.error)
@@ -232,7 +242,7 @@ export default function TrackingPage() {
                       style={{ borderColor: 'var(--bg-card)' }} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold" style={pStyle}>Ahmet Yılmaz</p>
+                    <p className="text-sm font-bold" style={pStyle}>{courierName ?? 'Kurye'}</p>
                     <div className="flex items-center gap-1 text-xs" style={sStyle}>
                       <span className="material-symbols-outlined text-[14px]" style={{ ...aStyle, fontVariationSettings: "'FILL' 1" }}>star</span>
                       <span>4.9</span>

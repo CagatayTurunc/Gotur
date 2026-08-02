@@ -64,6 +64,24 @@ public class CouriersController : ControllerBase
     }
 
     /// <summary>
+    /// Kurye adını döner — sipariş takip sayfası için.
+    /// </summary>
+    [HttpGet("{id:guid}/info")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCourierInfo(Guid id)
+    {
+        var courier = await _db.Couriers
+            .Include(c => c.User)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (courier is null)
+            return NotFound(new { message = "Kurye bulunamadı." });
+
+        return Ok(new { fullName = courier.User.FullName });
+    }
+
+    /// <summary>
     /// Tüm kuryelerin listesi — sadece admin.
     /// </summary>
     [HttpGet]
