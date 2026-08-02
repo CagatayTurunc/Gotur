@@ -123,14 +123,30 @@ export default function AddressPickerModal() {
     }, 500)
   }
 
-  // Manuel girilen metni koordinatsız olarak adres olarak kullan
-  const useManualText = () => {
+  // Manuel girilen metni Nominatim'den koordinat bularak kaydet
+  const useManualText = async () => {
     if (!searchQuery.trim()) return
-    setPickedText(searchQuery.trim())
-    // Ankara merkezi koordinatları (koordinat bulunamazsa fallback)
-    setPickedLat(39.9334)
-    setPickedLng(32.8597)
     setSuggestions([])
+    setSearching(true)
+    try {
+      const results = await searchAddress(searchQuery.trim())
+      if (results.length > 0) {
+        // İlk sonucun koordinatını al ama metni kullanıcının yazdığı olarak bırak
+        const first = results[0]
+        setPickedLat(parseFloat(first.lat))
+        setPickedLng(parseFloat(first.lon))
+      } else {
+        // Hiç sonuç yoksa Türkiye merkezi fallback (koordinatsız daha iyi)
+        setPickedLat(39.0)
+        setPickedLng(35.0)
+      }
+    } catch {
+      setPickedLat(39.0)
+      setPickedLng(35.0)
+    } finally {
+      setSearching(false)
+    }
+    setPickedText(searchQuery.trim())
   }
 
   const pickSuggestion = (r: NominatimResult) => {
@@ -208,7 +224,7 @@ export default function AddressPickerModal() {
         </div>
 
         {/* Scrollable content */}
-        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ overflowY: 'auto', overflowX: 'visible', flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* ── LIST VIEW ── */}
           {step === 'list' && (<>
@@ -250,20 +266,24 @@ export default function AddressPickerModal() {
                   {savedAddresses.map(addr => {
                     const isSelected = selectedAddress?.id === addr.id
                     return (
-                      <div key={addr.id}
-                        onClick={() => handleSelect(addr)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`, backgroundColor: isSelected ? 'var(--accent-soft)' : 'var(--bg-card)', cursor: 'pointer' }}>
+                      <div key={addr.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, border: `1.5px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`, backgroundColor: isSelected ? 'var(--accent-soft)' : 'var(--bg-card)', cursor: 'pointer', position: 'relative' }}>
+                        {/* Tıklanabilir alan — tüm kart */}
+                        <button
+                          onClick={() => handleSelect(addr)}
+                          style={{ position: 'absolute', inset: 0, background: 'none', border: 'none', cursor: 'pointer', borderRadius: 14 }}
+                          aria-label={`${addr.label} adresini seç`}
+                        />
                         <span className="material-symbols-outlined"
-                          style={{ ...(isSelected ? A : S), fontSize: 22, flexShrink: 0, fontVariationSettings: "'FILL' 1" }}>
+                          style={{ ...(isSelected ? A : S), fontSize: 22, flexShrink: 0, fontVariationSettings: "'FILL' 1", position: 'relative', zIndex: 1 }}>
                           {addr.label === 'Ev' ? 'home' : addr.label === 'İş' ? 'business' : 'location_on'}
                         </span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
                           <p style={{ ...P, fontWeight: 700, fontSize: 14, margin: 0 }}>{addr.label}</p>
                           <p style={{ ...S, fontSize: 12, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{addr.fullAddress}</p>
                         </div>
-                        {isSelected && <span className="material-symbols-outlined" style={{ ...A, fontSize: 20, fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+                        {isSelected && <span className="material-symbols-outlined" style={{ ...A, fontSize: 20, fontVariationSettings: "'FILL' 1", position: 'relative', zIndex: 1 }}>check_circle</span>}
                         <button onClick={e => { e.stopPropagation(); removeAddress(addr.id) }}
-                          style={{ ...S, background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+                          style={{ ...S, background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0, position: 'relative', zIndex: 2 }}>
                           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
                         </button>
                       </div>
@@ -298,7 +318,7 @@ export default function AddressPickerModal() {
 
               {/* Arama inputu */}
               <div style={{ position: 'relative' }}>
-                <span className="material-symbols-outlined" style={{ ...S, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 20 }}>search</span>
+                <span className="material-symbols-outlined" style={{ ...S, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 20, zIndex: 1, pointerEvents: 'none' }}>search</span>
                 <input
                   type="text"
                   value={searchQuery}
@@ -318,23 +338,23 @@ export default function AddressPickerModal() {
                   style={{ ...INPUT, width: '100%', padding: '12px 44px 12px 42px', borderRadius: 12, border: '1px solid var(--border)', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
                 {searching && (
-                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--accent)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', pointerEvents: 'none' }} />
+                )}
+
+                {/* Arama önerileri — input'a bağlı dropdown */}
+                {suggestions.length > 0 && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', backgroundColor: 'var(--bg-card)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100 }}>
+                    {suggestions.map((r, i) => (
+                      <button key={r.place_id}
+                        onMouseDown={e => { e.preventDefault(); pickSuggestion(r) }}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+                        <span className="material-symbols-outlined" style={{ ...S, fontSize: 18, flexShrink: 0, marginTop: 2 }}>location_on</span>
+                        <p style={{ ...P, fontSize: 13, margin: 0, lineHeight: 1.4 }}>{r.display_name}</p>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {/* Arama önerileri */}
-              {suggestions.length > 0 && (
-                <div style={{ borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', backgroundColor: 'var(--bg-card)' }}>
-                  {suggestions.map((r, i) => (
-                    <button key={r.place_id}
-                      onClick={() => pickSuggestion(r)}
-                      style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-                      <span className="material-symbols-outlined" style={{ ...S, fontSize: 18, flexShrink: 0, marginTop: 2 }}>location_on</span>
-                      <p style={{ ...P, fontSize: 13, margin: 0, lineHeight: 1.4 }}>{r.display_name}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {/* Öneri yoksa ve kullanıcı bir şey yazdıysa: manuel gir seçeneği */}
               {!searching && searchQuery.trim() && suggestions.length === 0 && !pickedText && (
