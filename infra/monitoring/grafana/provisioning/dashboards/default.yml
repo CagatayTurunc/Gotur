@@ -10,7 +10,8 @@ providers:
     type: file
     disableDeletion: false
     editable: true
-    updateIntervalSeconds: 30
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
     options:
       # Bu klasördeki tüm .json dosyaları dashboard olarak yüklenir.
       path: /etc/grafana/provisioning/dashboards

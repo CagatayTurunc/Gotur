@@ -103,18 +103,33 @@ builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
-// ── CORS (React frontend için) ────────────────────────────────────────────────
+// ── CORS (React frontend + Flutter web için) ──────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://gotur.site",
-                "https://www.gotur.site")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials()); // SignalR için gerekli
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            // Development: tüm localhost portlarına izin ver (Flutter web rastgele port kullanır)
+            policy.SetIsOriginAllowed(origin =>
+                    {
+                        var uri = new Uri(origin);
+                        return uri.Host == "localhost" || uri.Host == "127.0.0.1";
+                    })
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
+        else
+        {
+            policy.WithOrigins(
+                    "https://gotur.site",
+                    "https://www.gotur.site")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,6 +181,24 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// ── Security Headers ──────────────────────────────────────────────────────────
+// Tarayıcı seviyesinde saldırı yüzeyini küçültür.
+// X-Content-Type-Options  → MIME sniffing saldırısını önler
+// X-Frame-Options         → Clickjacking / UI redressing saldırısını önler
+// X-XSS-Protection        → Eski tarayıcılarda XSS filtresi (modern tarayıcılarda CSP'ye bırakılmış)
+// Referrer-Policy         → Dış linklere gönderilen Referer header'ını sınırlar
+// Permissions-Policy      → Coğrafi konum, kamera, mikrofon gibi API'leri kısıtlar
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"]  = "nosniff";
+    context.Response.Headers["X-Frame-Options"]         = "DENY";
+    context.Response.Headers["X-XSS-Protection"]        = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"]         = "strict-origin-when-cross-origin";
+    context.Response.Headers["Permissions-Policy"]      = "camera=(), microphone=(), geolocation=(self)";
+    await next();
+});
+
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();

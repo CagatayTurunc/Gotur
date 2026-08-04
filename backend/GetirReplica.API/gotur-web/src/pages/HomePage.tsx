@@ -43,10 +43,10 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 const DELIVERY_RADIUS_KM = 25 // Teslimat yarıçapı — adres seçilince bu mesafe içindekiler gösterilir
 
 const TEST_ACCOUNTS = [
-  { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'musteri@test.com',  password: 'Test123!'  },
-  { icon: '🛵', label: 'Kurye',    sub: 'Test123!',   email: 'kurye1@test.com',   password: 'Test123!'  },
-  { icon: '🍽️', label: 'Restoran', sub: 'Test123!',   email: 'restoran@test.com', password: 'Test123!'  },
-  { icon: '⚙️', label: 'Admin',    sub: 'Admin123!',  email: 'admin@gotur.com',   password: 'Admin123!' },
+  { icon: '🛒', label: 'Müşteri',  sub: 'Test123!',   email: 'ahmet.yilmaz@gotur.com',    password: 'Test123!'  },
+  { icon: '🛵', label: 'Kurye',    sub: 'Test123!',   email: 'kurye.istanbul1@gotur.com',  password: 'Test123!'  },
+  { icon: '🍽️', label: 'Restoran', sub: 'Test123!',   email: 'karadeniz.mangal@gotur.com', password: 'Test123!'  },
+  { icon: '⚙️', label: 'Admin',    sub: 'Admin123!',  email: 'admin@gotur.com',            password: 'Admin123!' },
 ]
 
 const roleLabel: Record<string, string> = { customer: 'Müşteri', courier: 'Kurye', admin: 'Admin', restaurant: 'Restoran' }
@@ -840,13 +840,13 @@ export default function HomePage() {
 
       {/* Auth Modal */}
       {authOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row" style={{ animation: 'scaleUp .2s ease-out', maxHeight: '95vh' }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-4 bg-black/40 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row" style={{ animation: 'scaleUp .2s ease-out', maxHeight: '96vh', overflowY: 'auto' }}>
             <button onClick={closeAuth} className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-600">
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
-            {/* Sol panel */}
-            <div className="w-full md:w-5/12 bg-[#1c1c1e] text-white p-8 flex flex-col justify-center items-center text-center relative overflow-hidden flex-shrink-0">
+            {/* Sol panel — masaüstünde görünür, mobilde gizli */}
+            <div className="hidden md:flex w-full md:w-5/12 bg-[#1c1c1e] text-white p-8 flex-col justify-center items-center text-center relative overflow-hidden flex-shrink-0">
               <div className="absolute -top-24 -left-24 w-64 h-64 rounded-full bg-[#9a0002] opacity-20 blur-3xl pointer-events-none" />
               <h2 className="text-2xl font-bold leading-tight mb-3 tracking-tight">
                 Uygulamayı indir,<br /><span className="text-[#ffb4a9]">250 TL indirim</span> kazan
@@ -868,7 +868,7 @@ export default function HomePage() {
             </div>
 
             {/* Sağ — Form */}
-            <div className="flex-1 p-8 md:p-12 flex flex-col justify-center overflow-y-auto">
+            <div className="flex-1 p-6 md:p-12 flex flex-col justify-center overflow-y-auto">
               <div className="mb-7">
                 <h3 className="text-2xl font-bold text-gray-900 mb-1">{authMode === 'login' ? 'Tekrar Hoş Geldin' : authMode === 'register' ? 'Hesap Oluştur' : 'Şifreni Mi Unuttun?'}</h3>
                 <p className="text-sm text-gray-500">{authMode === 'login' ? 'Devam etmek için giriş yap.' : authMode === 'register' ? 'Ücretsiz kayıt ol, hemen sipariş ver.' : 'E-posta adresini gir, sıfırlama bağlantısı gönderelim.'}</p>

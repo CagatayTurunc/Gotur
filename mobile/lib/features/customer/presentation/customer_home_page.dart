@@ -427,24 +427,27 @@ class _CustomerHomePageState extends ConsumerState<CustomerHomePage> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Row(
-                      children: [
-                        _HomeTab(
-                          icon: Icons.restaurant_rounded,
-                          label: 'Restoranlar',
-                          isActive: true,
-                        ),
-                        SizedBox(width: 10),
-                        _HomeTab(
-                          icon: Icons.takeout_dining_rounded,
-                          label: 'Al Götür',
-                        ),
-                        SizedBox(width: 10),
-                        _HomeTab(
-                          icon: Icons.local_grocery_store_rounded,
-                          label: 'Market',
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: const Row(
+                        children: [
+                          _HomeTab(
+                            icon: Icons.restaurant_rounded,
+                            label: 'Restoranlar',
+                            isActive: true,
+                          ),
+                          SizedBox(width: 10),
+                          _HomeTab(
+                            icon: Icons.takeout_dining_rounded,
+                            label: 'Al Götür',
+                          ),
+                          SizedBox(width: 10),
+                          _HomeTab(
+                            icon: Icons.local_grocery_store_rounded,
+                            label: 'Market',
+                          ),
+                        ],
+                      ),
                     ),
                     if (session == null) ...[
                       const SizedBox(height: 16),

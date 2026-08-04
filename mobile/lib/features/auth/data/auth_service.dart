@@ -23,6 +23,29 @@ class AuthService {
     return AuthSession.fromJson(response.data ?? <String, dynamic>{});
   }
 
+  Future<AuthSession> register({
+    required String email,
+    required String password,
+    required String fullName,
+    String role = 'customer',
+  }) async {
+    final body = {
+      'email': email,
+      'password': password,
+      'fullName': fullName,
+      'role': role,
+    };
+
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/auth/register',
+      data: body,
+      options: Options(
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    return AuthSession.fromJson(response.data ?? <String, dynamic>{});
+  }
+
   Future<AppUser> me() async {
     final response = await _dio.get<Map<String, dynamic>>('/auth/me');
     return AppUser.fromJson(response.data ?? <String, dynamic>{});

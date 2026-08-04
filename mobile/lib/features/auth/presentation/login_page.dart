@@ -13,53 +13,105 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+class _LoginPageState extends ConsumerState<LoginPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  // Login form
+  final _loginFormKey = GlobalKey<FormState>();
+  final _loginEmailCtrl = TextEditingController();
+  final _loginPasswordCtrl = TextEditingController();
+
+  // Register form
+  final _registerFormKey = GlobalKey<FormState>();
+  final _registerNameCtrl = TextEditingController();
+  final _registerEmailCtrl = TextEditingController();
+  final _registerPasswordCtrl = TextEditingController();
+  final _registerPasswordConfirmCtrl = TextEditingController();
+
+  bool _loginObscure = true;
+  bool _registerObscure = true;
+  bool _registerObscureConfirm = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _tabController.dispose();
+    _loginEmailCtrl.dispose();
+    _loginPasswordCtrl.dispose();
+    _registerNameCtrl.dispose();
+    _registerEmailCtrl.dispose();
+    _registerPasswordCtrl.dispose();
+    _registerPasswordConfirmCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _login() async {
+    if (!_loginFormKey.currentState!.validate()) return;
 
-    await ref
-        .read(authControllerProvider.notifier)
-        .login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+    await ref.read(authControllerProvider.notifier).login(
+          email: _loginEmailCtrl.text.trim(),
+          password: _loginPasswordCtrl.text,
         );
 
     final authState = ref.read(authControllerProvider);
     if (authState.hasError && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(authState.error.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(authState.error.toString())),
+      );
       return;
     }
 
     final session = authState.valueOrNull;
     if (mounted && session != null) {
-      final role = session.user.role.toLowerCase();
-      final defaultHome = role == 'customer' 
-          ? AppRouter.customerHome 
-          : (role == 'restaurant' ? AppRouter.restaurantPanel : AppRouter.courierPanel);
-      
-      context.go(defaultHome);
+      _navigateByRole(session.user.role);
     }
+  }
+
+  Future<void> _register() async {
+    if (!_registerFormKey.currentState!.validate()) return;
+
+    await ref.read(authControllerProvider.notifier).register(
+          email: _registerEmailCtrl.text.trim(),
+          password: _registerPasswordCtrl.text,
+          fullName: _registerNameCtrl.text.trim(),
+        );
+
+    final authState = ref.read(authControllerProvider);
+    if (authState.hasError && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(authState.error.toString())),
+      );
+      return;
+    }
+
+    final session = authState.valueOrNull;
+    if (mounted && session != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kayıt başarılı, hoş geldin!')),
+      );
+      _navigateByRole(session.user.role);
+    }
+  }
+
+  void _navigateByRole(String role) {
+    final r = role.toLowerCase();
+    final dest = r == 'courier'
+        ? AppRouter.courierPanel
+        : r == 'restaurant'
+            ? AppRouter.restaurantPanel
+            : AppRouter.customerHome;
+    context.go(dest);
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
-    final isLoading = authState.isLoading;
+    final isLoading = ref.watch(authControllerProvider).isLoading;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -68,110 +120,219 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.delivery_dining_rounded,
-                    size: 96,
-                    color: theme.colorScheme.primary,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(
+                  Icons.delivery_dining_rounded,
+                  size: 80,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  AppConstants.appName,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 28),
+
+                // Tab bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    AppConstants.appName,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelColor: theme.colorScheme.onPrimary,
+                    unselectedLabelColor: theme.colorScheme.onSurface,
+                    dividerColor: Colors.transparent,
+                    tabs: const [
+                      Tab(text: 'Giriş Yap'),
+                      Tab(text: 'Kayıt Ol'),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Restoranları misafir olarak gezebilir, sipariş aşamasında hesabınla devam edebilirsin.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  height: 380,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // ── Login Tab ──
+                      Form(
+                        key: _loginFormKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _loginEmailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                labelText: 'E-posta',
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'E-posta zorunlu';
+                                }
+                                if (!v.contains('@')) return 'Geçerli e-posta gir';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _loginPasswordCtrl,
+                              obscureText: _loginObscure,
+                              decoration: InputDecoration(
+                                labelText: 'Şifre',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_loginObscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(
+                                      () => _loginObscure = !_loginObscure),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'Şifre zorunlu';
+                                if (v.length < 6) return 'En az 6 karakter';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            FilledButton(
+                              onPressed: isLoading ? null : _login,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('Giriş Yap'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Rol seçmene gerek yok. Girdiğin hesabın yetkisine göre uygulama seni doğru akışa yönlendirir.',
-                            style: theme.textTheme.bodyMedium,
-                          ),
+                      ),
+
+                      // ── Register Tab ──
+                      Form(
+                        key: _registerFormKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _registerNameCtrl,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Ad Soyad',
+                                prefixIcon: Icon(Icons.person_outline),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Ad soyad zorunlu';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _registerEmailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                labelText: 'E-posta',
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'E-posta zorunlu';
+                                }
+                                if (!v.contains('@')) return 'Geçerli e-posta gir';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _registerPasswordCtrl,
+                              obscureText: _registerObscure,
+                              decoration: InputDecoration(
+                                labelText: 'Şifre',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_registerObscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(() =>
+                                      _registerObscure = !_registerObscure),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.isEmpty) return 'Şifre zorunlu';
+                                if (v.length < 6) return 'En az 6 karakter';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _registerPasswordConfirmCtrl,
+                              obscureText: _registerObscureConfirm,
+                              decoration: InputDecoration(
+                                labelText: 'Şifre Tekrar',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_registerObscureConfirm
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(() =>
+                                      _registerObscureConfirm =
+                                          !_registerObscureConfirm),
+                                ),
+                              ),
+                              validator: (v) {
+                                if (v == null || v.isEmpty) {
+                                  return 'Şifre tekrarı zorunlu';
+                                }
+                                if (v != _registerPasswordCtrl.text) {
+                                  return 'Şifreler eşleşmiyor';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            FilledButton(
+                              onPressed: isLoading ? null : _register,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('Kayıt Ol'),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 32),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'E-posta',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'E-posta zorunlu';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Geçerli bir e-posta gir';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Şifre',
-                      prefixIcon: Icon(Icons.lock_outline),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Şifre zorunlu';
-                      }
-                      if (value.length < 6) {
-                        return 'Şifre en az 6 karakter olmalı';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: isLoading ? null : _submit,
-                    child: isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Giriş yap'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      context.go(AppRouter.customerHome);
-                    },
-                    child: const Text('Misafir olarak devam et'),
-                  ),
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => context.go(AppRouter.customerHome),
+                  child: const Text('Misafir olarak devam et'),
+                ),
+              ],
             ),
           ),
         ),

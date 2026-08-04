@@ -11,6 +11,7 @@ datasources:
     # "prometheus:9090" → docker-compose servis adı, iç network üzerinden.
     url: http://prometheus:9090
     access: proxy
+    uid: PBFA97CFB590B2093
     isDefault: true
     editable: false
     jsonData:

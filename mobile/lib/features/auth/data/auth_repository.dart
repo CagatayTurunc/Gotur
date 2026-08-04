@@ -26,6 +26,20 @@ class AuthRepository {
     return session;
   }
 
+  Future<AuthSession> register({
+    required String email,
+    required String password,
+    required String fullName,
+  }) async {
+    final session = await _service.register(
+      email: email,
+      password: password,
+      fullName: fullName,
+    );
+    await _storage.write(AppConstants.authTokenKey, session.token);
+    return session;
+  }
+
   Future<void> logout() => _storage.delete(AppConstants.authTokenKey);
 
   Future<String?> readToken() => _storage.read(AppConstants.authTokenKey);
